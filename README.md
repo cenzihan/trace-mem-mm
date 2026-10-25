@@ -14,7 +14,7 @@ fails closed. Actual development used the gpt-4o-mini-2024-07-18 response versio
 256-dimensional text-embedding-v4. Image originals are returned with evidence; byte
 identity is not visual understanding. A small live integration found weak visual
 cards, and its first image query failed local validation. Full visual-query and
-answer accuracy remain unverified. Qwen reranking is disabled pending rule review.
+answer accuracy remain unverified. Qwen scoring-only reranking is permitted by the current announcement; it stays disabled in this controlled comparison.
 
 ## Run without credentials
 
@@ -51,3 +51,7 @@ official Smoke or Full has run, and no public endpoint or enrollment is configur
 
 These are design references. This repository does not vendor their code, model
 weights or datasets. See NOTICE.md for the current licensing status.
+
+Detailed design and pinned research implementations: [METHODS.md](METHODS.md).
+
+Current Academic model/data policy: [eligibility](docs/eligibility.md).

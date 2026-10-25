@@ -10,7 +10,7 @@ class DatasetBoundaryError(ValueError):pass
 def validate_manifest(manifest):
     if not isinstance(manifest,dict):raise DatasetBoundaryError('manifest must be an object')
     required={'dataset','native_task','source_url','split','license','review_status','files',
-              'intended_use','evaluation_material','source_overlap_review'}
+              'intended_use','evaluation_material','source_overlap_review','evidence_origin','preprocessing_models'}
     if not required<=manifest.keys():raise DatasetBoundaryError('incomplete provenance manifest')
     if any(not isinstance(manifest[k],str) or not manifest[k].strip()
            for k in ('dataset','native_task','source_url','split','license','review_status','intended_use','source_overlap_review')):
@@ -22,6 +22,13 @@ def validate_manifest(manifest):
     if manifest['intended_use']!='native_offline_evaluation':
         raise DatasetBoundaryError('this adapter does not authorize training/tuning or AML service ingestion')
     if not isinstance(manifest['files'],list):raise DatasetBoundaryError('explicit local file inventory required')
+    if manifest['evidence_origin'] not in ('raw_media_or_original_dialogue','external_derived'):
+        raise DatasetBoundaryError('explicit raw/derived evidence provenance required')
+    models=manifest['preprocessing_models']
+    if not isinstance(models,list) or any(not isinstance(model,str) or not model for model in models):
+        raise DatasetBoundaryError('explicit preprocessing model inventory required')
+    if manifest['evidence_origin']=='raw_media_or_original_dialogue' and models:
+        raise DatasetBoundaryError('raw provenance conflicts with generated preprocessing')
     paths=set()
     for item in manifest['files']:
         if not isinstance(item,dict) or set(item)!={'path','role','sha256'}:
@@ -29,7 +36,7 @@ def validate_manifest(manifest):
         path=Path(item['path'])
         if path.is_absolute() or '..' in path.parts or item['path'] in paths:
             raise DatasetBoundaryError('ambiguous or escaping dataset path')
-        if item['role'] not in ('evidence','questions','gold'):
+        if item['role'] not in ('evidence','questions','gold','native_container'):
             raise DatasetBoundaryError('native dataset roles must be explicit')
         if not isinstance(item['sha256'],str) or len(item['sha256'])!=64 or any(c not in '0123456789abcdef' for c in item['sha256']):
             raise DatasetBoundaryError('verified lowercase SHA256 required')
@@ -50,6 +57,9 @@ def read_verified_evidence(root,manifest,relative_path):
         raise DatasetBoundaryError('prior-project/source benchmark overlap review pending')
     if manifest['evaluation_material']:
         raise DatasetBoundaryError('protected evaluation material may not enter this reader')
+    if manifest['evidence_origin']=='external_derived' and (not manifest['preprocessing_models'] or
+       any(model not in ('gpt-4o-mini','gpt-4o-mini-2024-07-18') for model in manifest['preprocessing_models'])):
+        raise DatasetBoundaryError('Academic preprocessing model provenance not compatible; use reviewed raw source')
     item=next((item for item in manifest['files'] if item['path']==relative_path),None)
     if item is None or item['role']!='evidence':
         raise DatasetBoundaryError('questions/gold are harness-only and cannot enter evidence reader')

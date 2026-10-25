@@ -105,12 +105,16 @@ class GPT4oMiniCards:
 
 
 class CandidateReranker:
-    """Candidate relevance scores only; never a caption/embedding/answer API."""
+    """Candidate scores only; current Academic announcement leaves rerankers unrestricted.
+
+    rules_confirmed records explicit local scoring-only configuration, not an extra
+    organizer approval requirement. Never use this adapter for generation/embedding.
+    """
     model="Qwen/Qwen3-VL-Reranker-2B"
 
     def __init__(self,score_function=None,rules_confirmed=False):
         if not rules_confirmed:
-            raise ProviderBlocked("VLM-derived reranker rule interpretation not confirmed")
+            raise ProviderBlocked("explicit scoring-only reranker configuration required")
         if score_function is None:
             raise ProviderBlocked("local scorer runtime not configured")
         self.function=score_function

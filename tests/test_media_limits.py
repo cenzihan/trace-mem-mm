@@ -4,10 +4,14 @@ import binascii
 import struct
 import tempfile
 import unittest
+import io
+import json
 from pathlib import Path
 
 from agent_memory.protocol import IMAGE_LIMIT,MEDIA_LIMIT,ContractError,validate_add
 from agent_memory.system import AgentMemorySystem
+from agent_memory.app import Application
+from agent_memory.protocol import media_size
 
 
 def padded_png(size):
@@ -44,3 +48,18 @@ class MediaBoundaryTests(unittest.TestCase):
             self.assertEqual(trace['media_budget_omitted_records'],1)
             for memory in result['data']:
                 self.assertEqual(memory['content'][1],part)
+
+    def test_http_json_over_30mib_is_valid_when_decoded_media_is_30mib(self):
+        part=padded_png(IMAGE_LIMIT);payload=self.payload([dict(type='text',text='boundary evidence'),part,part,part])
+        raw=json.dumps(payload).encode('utf-8')
+        self.assertGreater(len(raw),MEDIA_LIMIT)
+        with tempfile.TemporaryDirectory() as tmp:
+            app=Application(AgentMemorySystem(Path(tmp)/'boundary.sqlite'));statuses=[]
+            response=app(dict(PATH_INFO='/add',REQUEST_METHOD='POST',CONTENT_TYPE='application/json',
+                CONTENT_LENGTH=str(len(raw)),**{'wsgi.input':io.BytesIO(raw)}),lambda status,headers:statuses.append(status))
+            self.assertEqual(statuses[-1],'200 OK');self.assertTrue(json.loads(b''.join(response))['success'])
+            search=json.dumps(dict(user_id='u',query='boundary evidence',top_k=1)).encode()
+            response=app(dict(PATH_INFO='/search',REQUEST_METHOD='POST',CONTENT_TYPE='application/json',
+                CONTENT_LENGTH=str(len(search)),**{'wsgi.input':io.BytesIO(search)}),lambda status,headers:statuses.append(status))
+            body=b''.join(response);self.assertEqual(statuses[-1],'200 OK');self.assertGreater(len(body),MEDIA_LIMIT)
+            self.assertEqual(media_size(json.loads(body)['data'][0]['content']),MEDIA_LIMIT)
