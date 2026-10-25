@@ -30,3 +30,7 @@ text-embedding-v4 只编码文本桥；图文先由指定 LLM 形成检索描述
 evidence ID 必须指向来源 occurrence，多个卡片不能虚增证据数量。固定 evaluator commit 和 ID 映射，同时报告 `|retrieved∩GT|/|GT|`、any-hit、all-evidence coverage；三者不能混称 Recall@K。上游 ATM 文档和部分代码定义存在差别，因此本项目提供独立、命名明确的 harness-only 函数，未宣称复现上游总分。没有 GT 的问题不获得虚构的完美 recall，需要单独计算支持不足拒答和答题指标。
 
 图像证据命中、跨会话多证据完整覆盖、误关联、拒答、端到端答题准确率、成本和延迟应分开。当前真实诊断只有 6 个文本检索问题的单证据结果；完整多模态 reader、自然时间和复杂实体推理均无性能结论。只读元信息或数据卡许可不等于 AML 已批准的开发 split，也不自动授权将个人媒体发给外部 API。
+
+## Current implemented native comparison
+
+The original-evidence round index, structured specified-model visual adapter and bounded expansion now have one frozen native comparison. See [results](docs/native-v2-results.md) for all controls and negative findings. This is not a full reproduction of an upstream framework or official AML judging.

@@ -55,3 +55,5 @@ weights or datasets. See NOTICE.md for the current licensing status.
 Detailed design and pinned research implementations: [METHODS.md](METHODS.md).
 
 Current Academic model/data policy: [eligibility](docs/eligibility.md).
+
+Native image milestone: the image-only query validation is fixed. A/B/C ran on one complete public scenario (185 rounds,31 originals); structural/neighbor expansion did not give stable gains. Original response images were hash-verified; same-vector restart order is stable, while provider re-encoding can exchange tail ranks. No reader/official score is claimed. See [native results and limitations](docs/native-v2-results.md). Dataset-specific paid runners and runtime artifacts remain local and are not included.

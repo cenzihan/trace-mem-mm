@@ -239,12 +239,17 @@ class AgentMemorySystem(MemoryStore):
                 image_matches=sorted({mid for mid,digest in evidence if digest in query_images})
         memories = {row[0]:dict(id=row[0],created_at=row[2]) for row in rows}
         query_summary=None
+        query_unverified_quotes=0
         if rows and query_images and self.retrieval.visual_query_cards:
             generated=self.card_adapter.extract(json.loads(canonical(query_parts)))
             if (not isinstance(generated,dict) or not isinstance(generated.get('summary'),str) or
+                not generated['summary'].strip() or len(generated['summary'].encode('utf-8'))>8192 or
                 not isinstance(generated.get('evidence_quotes'),list) or
-                any(not isinstance(q,str) or q not in query for q in generated['evidence_quotes'])):
-                raise ValueError('invalid or ungrounded visual query summary')
+                any(not isinstance(q,str) for q in generated['evidence_quotes'])):
+                raise ValueError('query_card_schema_invalid')
+            # Image OCR/visual observations are not literal quotes from query text.
+            # They may guide retrieval, but never become stored or verified facts.
+            query_unverified_quotes=sum(q not in query for q in generated['evidence_quotes'])
             query_summary=generated['summary']
             query+=' '+query_summary
         source_digests={row[0]:row[1] for row in rows}
@@ -330,7 +335,9 @@ class AgentMemorySystem(MemoryStore):
         trace=dict(candidate_count=len(memories),image_matches=image_matches,temporal_picks=temporal_picks,
                    linked_candidates=sorted(set(linked)),dense_enabled=self.retrieval.dense,
                    cards_enabled=self.retrieval.cards,media_budget_omitted_records=media_budget_omitted,
-                   capabilities=self.capabilities(),query_summary=query_summary)
+                   capabilities=self.capabilities(),query_summary=query_summary,
+                   query_unverified_visual_quotes=query_unverified_quotes,
+                   query_summary_is_verified_fact=False)
         return {"data":selected},trace
 
     def inspect_user(self,user_id):

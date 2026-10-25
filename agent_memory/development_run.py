@@ -7,10 +7,13 @@ from .budget import micro_cny
 
 
 class DevelopmentRun:
-    def __init__(self,path,*,create=False,max_requests=32,max_reservation_cny='10'):
+    def __init__(self,path,*,create=False,max_requests=32,max_reservation_cny='10',approval_scope='standard_50_10'):
         self.path=Path(path)
         if create:
-            if not 1<=max_requests<=50 or not 0<micro_cny(max_reservation_cny)<=10000000:
+            scopes={'standard_50_10':(50,10000000),'native_100_20':(100,20000000)}
+            if approval_scope not in scopes:raise ValueError('unknown explicit approval scope')
+            allowed_requests,allowed_money=scopes[approval_scope]
+            if not 1<=max_requests<=allowed_requests or not 0<micro_cny(max_reservation_cny)<=allowed_money:
                 raise ValueError('development run exceeds approved bounds')
             self.path.parent.mkdir(parents=True,exist_ok=True)
             with self.path.open('xb'):pass

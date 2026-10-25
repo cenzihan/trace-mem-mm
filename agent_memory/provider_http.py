@@ -122,7 +122,7 @@ class BudgetedJSONTransport:
     def __init__(self,*,model,endpoint,ledger,rate,credential_reader=None,http=None,
                  mode='live',enabled=False,prices_confirmed=False,retry=None,purpose='pipeline',
                  timeout_seconds=30,max_response_bytes=4*1024*1024,usd_rates=None,sleep=time.sleep,
-                 fixed_reserve_cny=None):
+                 fixed_reserve_cny=None,output_token_cap=512):
         validate_endpoint(model,endpoint)
         if not isinstance(ledger,BudgetLedger) or not isinstance(rate,VerifiedRate) or rate.model!=model:
             raise ValueError('matching verified model price and persistent ledger required')
@@ -134,6 +134,9 @@ class BudgetedJSONTransport:
             if not 0<micro_cny(fixed_reserve_cny)<=10000000:
                 raise ValueError('fixed per-call hold must be within CNY 10')
         self.fixed_reserve_cny=fixed_reserve_cny
+        if type(output_token_cap) is not int or not 1<=output_token_cap<=2048:
+            raise ValueError('explicit output cap must be within 2048')
+        self.output_token_cap=output_token_cap
         if mode not in ('live','offline_fake') or purpose not in ('pipeline','connectivity_check'):
             raise ValueError('invalid dispatch mode/purpose')
         if type(enabled) is not bool or type(prices_confirmed) is not bool:
@@ -177,7 +180,7 @@ class BudgetedJSONTransport:
         if set(payload)-allowed or payload.get('store') is not False or type(payload.get('n')) is not int or payload.get('n')!=1:
             raise ValueError('unsupported chat parameters or persistence')
         output=payload.get('max_completion_tokens')
-        if type(output) is not int or not 1<=output<=512:raise ValueError('local completion token cap is 512')
+        if type(output) is not int or not 1<=output<=self.output_token_cap:raise ValueError('local completion token cap exceeded')
         messages=payload.get('messages')
         if not isinstance(messages,list) or len(messages)!=2 or any(not isinstance(m,dict) for m in messages) or [m.get('role') for m in messages]!=['system','user']:
             raise ValueError('source-card request requires system plus one user source')
