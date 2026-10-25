@@ -1,0 +1,38 @@
+{
+  "request_id": "synthetic:add:1",
+  "user_id": "synthetic:user:alice",
+  "session_id": "synthetic:session:one",
+  "messages": [
+    {
+      "role": "user",
+      "timestamp": 1704067200000,
+      "content": [
+        {
+          "type": "text",
+          "text": "Original synthetic caption: red square at the north gate."
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGP4ICeHFTEMLQkAgvtLAdqvrTYAAAAASUVORK5CYII="
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Original synthetic caption: blue square by the lake."
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGOQk/uAFTEMLQkAGftLAWU+k5QAAAAASUVORK5CYII="
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "mode": "mock",
+  "embedding_model": "text-embedding-v4",
+  "llm_model": "gpt-4o-mini",
+  "reranker": "identity",
+  "candidate_reranker_rules_confirmed": false
+}

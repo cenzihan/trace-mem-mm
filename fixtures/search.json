@@ -1,0 +1,20 @@
+{
+  "query": [
+    {
+      "type": "text",
+      "text": "red north gate"
+    },
+    {
+      "type": "image_url",
+      "image_url": {
+        "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGP4ICeHFTEMLQkAgvtLAdqvrTYAAAAASUVORK5CYII="
+      }
+    }
+  ],
+  "options": [
+    "A. north gate",
+    "B. lake"
+  ],
+  "user_id": "synthetic:user:alice",
+  "top_k": 100
+}
