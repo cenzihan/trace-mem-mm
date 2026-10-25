@@ -77,3 +77,20 @@ unsupported; no ATM media or model evaluation has run.
 See [scene status](docs/native-v3-results.md), [frozen plan](docs/native-v3-plan.md),
 and [ATM integration](docs/atm-native-integration.md). Data, answers, logs, credentials,
 budget databases and paid runner scripts are excluded from this repository.
+
+
+### Recovery implementation status
+
+Finite, content-free response diagnostic branches now match the frozen HTTP
+validator. Verified HTTP200 contract rejections can be explicitly journaled as
+rejected responses, preserving their slot and full hold; timeout/unknown/missing
+usage remains blocked. A one-time fresh acquisition recovery runner is prepared
+locally, but its paid execution was denied by approval review and has NOT run.
+No failed request has been replayed and no new performance score is available.
+See [recovery audit](docs/native-v3-recovery.md).
+
+ATM full metadata inventory is 8,597 files / 3,329,285,464 bytes. A local bounded
+video-frame adapter now preserves original video evidence identity and frame
+timestamps; audio-bearing video is explicitly blocked. Only fake-process tests
+have run; no dataset videos or emails were downloaded or sent to providers.
+ffmpeg/ffprobe were not found or installed on the development machine.

@@ -36,7 +36,7 @@ class DevelopmentRun:
             count,total=db.execute('SELECT COUNT(*),coalesce(SUM(held),0) FROM calls').fetchone()
             if state!='active' or count>=limit or total+amount>cap:
                 raise ValueError('durable development request/budget limit reached')
-            if db.execute("SELECT 1 FROM calls WHERE state<>'complete' LIMIT 1").fetchone():
+            if db.execute("SELECT 1 FROM calls WHERE state NOT IN ('complete','rejected_response') LIMIT 1").fetchone():
                 raise ValueError('unfinished development attempt blocks automatic continuation')
             ordinal=count+1
             db.execute('INSERT INTO calls VALUES(?,?,?,?,?,?,?)',
@@ -51,9 +51,42 @@ class DevelopmentRun:
 
     def close(self):
         with self.connect() as db:
-            if db.execute("SELECT 1 FROM calls WHERE state<>'complete'").fetchone():
+            if db.execute("SELECT 1 FROM calls WHERE state NOT IN ('complete','rejected_response')").fetchone():
                 raise ValueError('uncertain attempt retained; cannot declare completed')
             db.execute("UPDATE run SET state='complete'")
+
+    def acknowledge_known_contract_rejection(self,ordinal,ledger_path,attempt_id):
+        """Explicit recovery only: a completed HTTP200 response rejected by schema.
+
+        Never accepts a timeout, missing usage, mismatched model, or usage overflow.
+        Preserves the rejected slot AND its full budget hold; does not dispatch,
+        repeat, settle, release, or mark the provider request successful.
+        """
+        path=Path(ledger_path).resolve()
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as ledger:
+            ledger.execute('PRAGMA query_only=ON')
+            row=ledger.execute('''SELECT a.model,a.created_at,a.max_input,a.max_output,a.input_tokens,a.output_tokens,
+                o.category,o.http_status,o.returned_model,o.observed_at
+                FROM attempts a JOIN provider_observations o ON a.id=o.attempt_id WHERE a.id=?''',(attempt_id,)).fetchone()
+        if not row:raise ValueError('no durable observed provider response')
+        model,created,imax,omax,inp,out,category,status,returned,observed=row
+        allowed={'gpt-4o-mini','gpt-4o-mini-2024-07-18'} if model=='gpt-4o-mini' else {'text-embedding-v4'}
+        if (category!='invalid_contract' or status!=200 or returned not in allowed or
+            type(inp) is not int or type(out) is not int or not 0<=inp<=imax or not 0<=out<=omax):
+            raise ValueError('unknown/rejected provider outcome cannot be acknowledged as completed response')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            call=db.execute('SELECT model,state,started_at FROM calls WHERE ordinal=?',(ordinal,)).fetchone()
+            if not call or call[0]!=model or call[1]!='claimed' or not call[2]<=created<=observed:
+                raise ValueError('provider observation does not match the unfinished run slot')
+            db.execute('''CREATE TABLE IF NOT EXISTS response_rejections(
+                ordinal INTEGER PRIMARY KEY,attempt_id TEXT UNIQUE,category TEXT,http_status INTEGER,
+                input_tokens INTEGER,output_tokens INTEGER,acknowledged_at TEXT)''')
+            now=datetime.now(timezone.utc).isoformat()
+            db.execute('INSERT INTO response_rejections VALUES(?,?,?,?,?,?,?)',
+                       (ordinal,attempt_id,category,status,inp,out,now))
+            db.execute("UPDATE calls SET state='rejected_response',finished_at=?,returned_model=? WHERE ordinal=?",
+                       (now,returned,ordinal))
 
     def summary(self):
         with self.connect() as db:
