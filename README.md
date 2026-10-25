@@ -12,9 +12,10 @@ bounded links are optional; natural-time reasoning is not established.
 All LLM roles use gpt-4o-mini. Embeddings use text-embedding-v4; model substitution
 fails closed. Actual development used the gpt-4o-mini-2024-07-18 response version and
 256-dimensional text-embedding-v4. Image originals are returned with evidence; byte
-identity is not visual understanding. A small live integration found weak visual
-cards, and its first image query failed local validation. Full visual-query and
-answer accuracy remain unverified. Qwen scoring-only reranking is permitted by the current announcement; it stays disabled in this controlled comparison.
+identity is not visual understanding. Earlier weak-card and image-query failures are retained in local reports. The
+image-only query validation is now fixed, and one frozen 185-round native image
+study returned hash-verified original evidence. Answer accuracy, abstention and
+public deployment remain unverified. Qwen scoring-only reranking is permitted by the current announcement; it stays disabled in this controlled comparison.
 
 ## Run without credentials
 
