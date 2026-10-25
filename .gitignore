@@ -10,3 +10,6 @@ models/
 *.safetensors
 *.pem
 *.key
+data/
+docs/*.private.md
+*.log
