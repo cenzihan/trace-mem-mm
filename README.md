@@ -58,3 +58,22 @@ Detailed design and pinned research implementations: [METHODS.md](METHODS.md).
 Current Academic model/data policy: [eligibility](docs/eligibility.md).
 
 Native image milestone: the image-only query validation is fixed. A/B/C ran on one complete public scenario (185 rounds,31 originals); structural/neighbor expansion did not give stable gains. Original response images were hash-verified; same-vector restart order is stable, while provider re-encoding can exchange tail ranks. No reader/official score is claimed. See [native results and limitations](docs/native-v2-results.md). Dataset-specific paid runners and runtime artifacts remain local and are not included.
+
+
+## Independent scene and reader preparation
+
+The next native scene was selected by recorded filename ordering, keeping the prior
+A/B/C core and visual prompt unchanged. All 177 rounds and 45 media were preserved.
+The run stopped after 12 visual requests: 11 validated HTTP200 responses and one
+HTTP200 local `invalid_contract`. No embedding/reader/proxy-judge requests followed,
+and no new retrieval or answer score is claimed. It was not retried.
+
+New evidence-reader and isolated-scoring modules have offline tests. They match A/C
+image counts and text/output caps, validate citations, and keep references outside
+the reader and memory. These tests do not establish live reader quality.
+ATM native schema/inventory preparation now separates public questions from gold;
+its data license is CC BY-NC 4.0, distinct from MIT code. Video ingestion is explicitly
+unsupported; no ATM media or model evaluation has run.
+See [scene status](docs/native-v3-results.md), [frozen plan](docs/native-v3-plan.md),
+and [ATM integration](docs/atm-native-integration.md). Data, answers, logs, credentials,
+budget databases and paid runner scripts are excluded from this repository.
