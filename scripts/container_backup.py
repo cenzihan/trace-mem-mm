@@ -31,7 +31,8 @@ class BackupError(Exception):
 
 def run(command):
     try:
-        result = subprocess.run(command, cwd=ROOT, capture_output=True,
+        # Docker exec must not consume a caller's piped/heredoc shell program.
+        result = subprocess.run(command, cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True,
                                 text=True, timeout=600, check=False)
     except (OSError, subprocess.SubprocessError, UnicodeError):
         raise BackupError("Required local command could not complete.") from None

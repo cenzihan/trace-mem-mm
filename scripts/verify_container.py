@@ -74,7 +74,8 @@ def main(argv=None):
 
     def run(command, timeout=120):
         try:
-            result = subprocess.run(command, cwd=ROOT, env=env, text=True,
+            # Every command is noninteractive; preserve the operator's stdin.
+            result = subprocess.run(command, cwd=ROOT, env=env, text=True, stdin=subprocess.DEVNULL,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     timeout=timeout, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:

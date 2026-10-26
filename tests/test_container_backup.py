@@ -8,6 +8,7 @@ import shutil
 import sqlite3
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -34,6 +35,8 @@ class DockerFixture:
         self.commands.append(command)
         if kwargs.get("shell"):
             raise AssertionError("No shell is allowed")
+        if kwargs.get("stdin") != subprocess.DEVNULL:
+            raise AssertionError("Noninteractive commands must not consume operator stdin")
         self.assert_capture = kwargs["capture_output"] and kwargs["text"]
         out, code = "", 0
         if self.fail_with_secret:
@@ -269,6 +272,28 @@ class ContainerBackupTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(backup.BackupError):
                 backup.backup(self.destination, name)
         self.process.assert_not_called()
+
+
+class BackupStdinRegressionTests(unittest.TestCase):
+    def test_child_cannot_swallow_following_operator_commands(self):
+        # Use real subprocess pipes rather than Docker: the outer process models
+        # a shell reading a heredoc, and its child tries to drain inherited stdin.
+        script = (
+            "import json, sys\n"
+            "from scripts.container_backup import run\n"
+            "child = run([sys.executable, '-c', "
+            "'import sys; print(len(sys.stdin.buffer.read()))'])\n"
+            "remaining = sys.stdin.read()\n"
+            "print(json.dumps({'child_bytes': int(child), 'remaining': remaining}))\n"
+        )
+        following_commands = 'echo backup-finished\necho next-step\n'
+        result = subprocess.run(
+            [sys.executable, '-B', '-c', script], cwd=backup.ROOT,
+            input=following_commands, capture_output=True, text=True, timeout=15,
+            check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout),
+                         {'child_bytes': 0, 'remaining': following_commands})
 
 
 if __name__ == "__main__":

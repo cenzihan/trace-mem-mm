@@ -130,12 +130,31 @@ class ContainerValidatorTests(unittest.TestCase):
             self.assertEqual(evidence['model_calls'], 0)
             self.assertEqual(json.loads(stdout.getvalue()), evidence)
 
+    def test_noninteractive_commands_disconnect_operator_stdin(self):
+        # An unsupported synthetic engine stops before Compose/temp resources.
+        # The process boundary must explicitly disconnect a heredoc/pipe owned
+        # by the caller, not merely avoid reading sys.stdin in Python itself.
+        result = subprocess.CompletedProcess(
+            ['docker'], 0, json.dumps({'Os': 'synthetic-unsupported'}), '')
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'validation.json'
+            with patch.object(verifier.shutil, 'which', return_value='synthetic-docker'), \
+                    patch.object(verifier.subprocess, 'run', return_value=result) as launch, \
+                    patch.object(verifier.tempfile, 'TemporaryDirectory') as resources, \
+                    redirect_stdout(io.StringIO()):
+                code = verifier.main(['--output', str(output)])
+            self.assertEqual(code, 1)
+            launch.assert_called_once()
+            self.assertEqual(launch.call_args.kwargs['stdin'], subprocess.DEVNULL)
+            resources.assert_not_called()
+
     def test_failed_cleanup_keeps_original_error_and_only_targets_owned_resources(self):
         commands = []
         owned_project = None
 
         def fake_run(command, **kwargs):
             nonlocal owned_project
+            self.assertEqual(kwargs.get('stdin'), subprocess.DEVNULL)
             commands.append(copy.deepcopy(command))
             out = ''
             error = ''
