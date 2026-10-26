@@ -1,0 +1,155 @@
+{
+  "state": "complete",
+  "completed_at_utc": "2026-10-26T05:10:59.499364+00:00",
+  "experiment": "V7 independent project scene + V7.1 same-scene citation-interface regression",
+  "source_rounds": 186,
+  "source_questions": 74,
+  "retrieval_denominator": 60,
+  "empty_gold_questions": 14,
+  "rerank_pairs": 8831,
+  "real_embedding_calls": 27,
+  "original_reader_calls": 64,
+  "original_reader_invalid": 58,
+  "v71_reader_calls": 64,
+  "v71_reader_invalid": 14,
+  "v71_citation_identity_errors": 0,
+  "successful_judge_calls": 8,
+  "rejected_judge_http_calls": 1,
+  "local_no_http_claims": 1,
+  "total_real_provider_requests": 164,
+  "cumulative_provider_preflight_cny": "35.60",
+  "nominal_guard_preflight_cny": "35.85",
+  "successful_response_usage_estimate_cny_budget_assumption": "0.80971750",
+  "rejected_http_usage_cost_known": false,
+  "shared_accounted_cny": "72.213562",
+  "shared_remaining_cny": "427.786438",
+  "paid_guards_closed": true,
+  "old_local_preflight_record_preserved": true,
+  "official_score": false,
+  "docker_deployed": false,
+  "online_service_switched": false,
+  "formal_release": false,
+  "preferred_retrieval_candidate": "dense_reranked",
+  "reader_best_observed_tie": [
+    "dense_reranked",
+    "hybrid",
+    "hybrid_reranked"
+  ],
+  "reader_effect_demonstrated": false,
+  "reader_all": {
+    "paired": {
+      "dense_reranked_minus_dense": {
+        "ci95": [
+          -0.140625,
+          0.1875
+        ],
+        "losses": 1,
+        "mean_delta": 0.015625,
+        "questions": 16,
+        "ties": 14,
+        "wins": 1
+      },
+      "hybrid_reranked_minus_hybrid": {
+        "ci95": [
+          -0.1875,
+          0.1875
+        ],
+        "losses": 1,
+        "mean_delta": 0.0,
+        "questions": 16,
+        "ties": 14,
+        "wins": 1
+      }
+    },
+    "questions": 16,
+    "variants": {
+      "dense": {
+        "full_credit_rate": 0.5,
+        "invalid_answers": 4,
+        "proxy_mean": 0.546875,
+        "questions": 16
+      },
+      "dense_reranked": {
+        "full_credit_rate": 0.5625,
+        "invalid_answers": 3,
+        "proxy_mean": 0.5625,
+        "questions": 16
+      },
+      "hybrid": {
+        "full_credit_rate": 0.5625,
+        "invalid_answers": 5,
+        "proxy_mean": 0.5625,
+        "questions": 16
+      },
+      "hybrid_reranked": {
+        "full_credit_rate": 0.5625,
+        "invalid_answers": 2,
+        "proxy_mean": 0.5625,
+        "questions": 16
+      }
+    }
+  },
+  "retrieval_all": {
+    "empty_gold_questions": 14,
+    "questions": 74,
+    "recall_denominator": 60,
+    "variants": {
+      "dense": {
+        "100": {
+          "all_evidence_coverage": 0.9833333333333333,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9833333333333333
+        },
+        "20": {
+          "all_evidence_coverage": 0.8333333333333334,
+          "any_hit": 0.9333333333333333,
+          "fractional_recall": 0.8872718253968255
+        }
+      },
+      "dense_reranked": {
+        "100": {
+          "all_evidence_coverage": 0.9833333333333333,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9833333333333333
+        },
+        "20": {
+          "all_evidence_coverage": 0.9,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9461805555555556
+        }
+      },
+      "hybrid": {
+        "100": {
+          "all_evidence_coverage": 0.95,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9694444444444444
+        },
+        "20": {
+          "all_evidence_coverage": 0.7166666666666667,
+          "any_hit": 0.9666666666666667,
+          "fractional_recall": 0.841279761904762
+        }
+      },
+      "hybrid_reranked": {
+        "100": {
+          "all_evidence_coverage": 0.95,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9694444444444444
+        },
+        "20": {
+          "all_evidence_coverage": 0.8833333333333333,
+          "any_hit": 0.9833333333333333,
+          "fractional_recall": 0.9378472222222223
+        }
+      }
+    }
+  },
+  "source_condition": "original text + author image captions, no raw image inference",
+  "next": "Fix abstention state contract using synthetic cases; then freeze a new independent scene before more semantic or RAW-RAG window experiments.",
+  "reports": {
+    "reports/memgallery-v7-retrieval-scores.json": "834faa522df44d232e65b9f02905c5809440cd3b5cafd29020fd932eeaab1b63",
+    "reports/memgallery-v71-reader-scores.json": "6d1457c9177627a48f9034335a56561ed10f74aca8ff2e28abac7c44dae010dd",
+    "reports/memgallery-v71-judge-json-accounting-audit.json": "e1b148d4d790ef67f89da7030bdbac3b7880c4ea8e8d5ae0b5c7dfd50b4a3e95",
+    "reports/memgallery-v71-format-diagnostic.json": "57d9d3febae1ddfd55d7b94bc249b3ce804397bd56e232754d8bd8e714922f9d"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "inputs": {
+    "reports/memgallery-v7-retrieval-scores.json": "834faa522df44d232e65b9f02905c5809440cd3b5cafd29020fd932eeaab1b63",
+    "reports/memgallery-v71-reader-scores.json": "6d1457c9177627a48f9034335a56561ed10f74aca8ff2e28abac7c44dae010dd"
+  },
+  "native_qa_read": false,
+  "official_score": false
+}
