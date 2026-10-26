@@ -6,7 +6,7 @@
 
 16题Reader的严格代理分为Dense54.69、Dense＋重排56.25、Hybrid56.25、Hybrid＋重排56.25。配对区间跨零，尚未证明稳定的回答提升。V7.1消除了引用ID错误，但仍有14/64份拒答状态不一致，均计零；保留原V7的58/64无效结果和全部失败记录。
 
-本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认在线服务未替换。Docker 基础 Add/Search 已部署到用户服务器；另一个隔离容器已通过 3 次真实 embedding 调用及重建后的检索验收。GPT、图片理解和重排尚未通过这台服务器的在线验收，详见[模型 smoke 记录](docs/embedding-model-smoke.md)。
+本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认在线服务未替换。Docker 基础 Add/Search 已部署；3 次真实 embedding、1 次容器内 GPT 卡片调用及独立 GPU 上 6 对 Qwen 重排 smoke 已通过。三个组件仍待接入同一在线候选版本，详见[准入准备与最新模型 smoke](docs/competition-readiness-20261026.md)。
 
 完整结果、图表、置信区间与调用审计见[V7/V7.1结果](docs/v7-independent-scene.md)。[V6结果](docs/v6-results.md)、[V5结果](docs/v5-results.md)和[开源方法核查](docs/opensource-methods-20261025.md)保留为历史里程碑。当前研究代码使用私有[Draft PR #1](https://github.com/cenzihan/trace-mem-mm/pull/1)继续迭代。最终源码517项、发布副本493项工程测试通过。
 
@@ -27,8 +27,12 @@ confirm an image build. A separate bounded profile completed three real
 text-embedding-v4 calls, authenticated Add/Search and recreation persistence.
 Its receipts were reconciled against the same three original parent-ledger holds;
 the smoke container was removed and its temporary provider key deleted, with
-private evidence retained. GPT preflight returned a regional HTTP 403; no GPT
-inference ran on this server. No public endpoint or formal release is claimed.
+private evidence retained. The initial GPT regional HTTP403 was preserved. After
+the user changed the configuration, one real GPT card request inside the deployed
+container succeeded, and a separate six-pair Qwen GPU smoke passed. These are
+component checks; the running Add/Search baseline still has dense/rerank disabled.
+See the [current application requirements and evidence](docs/competition-readiness-20261026.md).
+No public endpoint, official Smoke or formal release is claimed.
 
 Read the [server setup, Docker validation and integration plan](docs/docker-deployment.md),
 [real embedding smoke evidence and runbook](docs/embedding-model-smoke.md),
