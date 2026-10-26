@@ -1,0 +1,7 @@
+# Official PyPI wheel metadata verified 2026-10-26. Runtime dependencies only.
+gunicorn==26.2.0 --hash=sha256:bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3
+# Receipt-journal imports reach the existing visual helpers, which require PIL.
+# CPython 3.11 manylinux_2_27/2_28 wheels: x86_64, then aarch64.
+Pillow==13.0.0 \
+    --hash=sha256:a625df9a2a5597fa5e5266e01aefc82604bb85d291e3547981e863560d75da6c \
+    --hash=sha256:7c88c10dd432f3b39ccdafc9ed81d0c21b8fd634502574da76d1bfa4fe2c76d0

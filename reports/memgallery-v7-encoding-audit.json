@@ -1,0 +1,55 @@
+{
+  "schema": "memgallery-v7-encoding-additive-audit-v1",
+  "state": "passed",
+  "audited_at_utc": "2026-10-26T04:28:15.836570+00:00",
+  "stages": {
+    "source": {
+      "records": 186,
+      "chunks": 186,
+      "complete_batches": 19,
+      "manifest_sha256": "e898f26576be2301e213409e557b6a3b0ab4e452a8dcbfbfba457a2eaf5abe29",
+      "published_sha256": "966c75ac66a67f705db756320808473d2eba903fd5467dd96c80d6278560b93a",
+      "exact_source_reconstruction": true,
+      "exact_receipt_vector_match": true
+    },
+    "query": {
+      "records": 74,
+      "chunks": 74,
+      "complete_batches": 8,
+      "manifest_sha256": "1488189e75d202c9b7ae8c791ab358f295ea6e5769aacef468ecdbf535ed1948",
+      "published_sha256": "705207b987b264635a1543618c08aaa3baf7e07beaa6d4b624e4a86b36f7b4c2",
+      "exact_source_reconstruction": true,
+      "exact_receipt_vector_match": true
+    }
+  },
+  "real_embedding_requests": 27,
+  "guard_complete": true,
+  "complete_unique_run_bindings": 27,
+  "unknown_or_inflight_operations": 0,
+  "query_image_count": 6,
+  "all_query_images_have_aligned_original_captions": true,
+  "query_alias_conflicts": 0,
+  "historical_budget_rows_unchanged": true,
+  "new_usage_estimate_micro_cny": 12547,
+  "cumulative_preflight_micro_cny": 1350000,
+  "frozen_encoding_sha256": "a03f35484f6428150ffef62ac46d353cd05250df129fc05c94e389f7a23e93be",
+  "frozen_live_sha256": "528e4292a11207beb6648ca1a3b196b3c5ec83d1e645a657d8522298e89bbe9e",
+  "artifact_sha256": {
+    "runtime/memgallery-v7/encoding/source.sqlite": "b010ca72dd1d6b7291036d48df6dbaeae1b1cfa38eb2cea6b9b028aca29ff3d0",
+    "runtime/memgallery-v7/encoding/query.sqlite": "da1126a38cc166568e2fdf1f7f75d58f209e01f286a46b65388afd7dbb166c56",
+    "runtime/memgallery-v7/encoding/run.sqlite": "69f994b5179b5a7976b3a70d2e5cdc6bab83a55fde9b0cc8258ccd65399cb2ae",
+    "runtime/memgallery-v7/encoding/receipts/source/private-embedding.sqlite": "0994aa69a6eafa8a8a66b8368586d0d835e5b6b5c4cdcf8883ae302daa95c24e",
+    "runtime/memgallery-v7/encoding/receipts/query/private-embedding.sqlite": "45b397e6ab18b951c11b14a94ff35ca38d95995836a8aa9c79bb115df63b829c"
+  },
+  "audit_script_sha256": "feaf4d784d9bfec8093b06cd5178f7f6b35c414946ed6fdab142c488e97d9a3b",
+  "source_text_or_answers_in_report": false,
+  "provider_requests_by_audit": 0,
+  "gold_files_opened": false,
+  "existing_artifacts_modified": false,
+  "future_version_improvements": [
+    "Before dispatch, compare live cache manifest/counts with frozen counts; this additive audit verifies the completed run.",
+    "Reject zero/negative/noninteger max_batches instead of interpreting zero as an unlimited invocation.",
+    "Check query image aliases for consistency and all existing journal accounting flags before any next dispatch."
+  ],
+  "condition": "original dialogue plus author image captions; no raw image inference; no benchmark performance claim"
+}

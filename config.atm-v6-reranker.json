@@ -1,0 +1,19 @@
+{
+  "model": "Qwen/Qwen3-VL-Reranker-2B",
+  "revision": "4bd860ac4f15ad1897a214615cccc700f8f71818",
+  "weights_sha256": "466ec01961061e9d7f804b4fb1625fb6f406106cd1567e026096d4736fa9d5b9",
+  "input_mode": "source_text_only",
+  "instruction": "Retrieve text relevant to the user's query.",
+  "max_length": 4096,
+  "truncation": "document_prefix_only_preserve_query_and_template",
+  "score": "yes_minus_no_logit_float32",
+  "score_direction": "higher_is_better",
+  "batch_size": 8,
+  "padded_token_budget": 8192,
+  "dtype": "bfloat16",
+  "attention": "sdpa",
+  "workers": 4,
+  "max_seconds": 7200,
+  "generation": false,
+  "new_embedding_calls": 0
+}

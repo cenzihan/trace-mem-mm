@@ -1,0 +1,41 @@
+{
+  "state": "complete",
+  "scope": "read-only classification of unchanged V7.1 responses; no score recovery",
+  "created_at_utc": "2026-10-26T04:57:40.961009+00:00",
+  "responses": 64,
+  "counts": {
+    "abstention requires insufficient confidence": 10,
+    "valid": 50,
+    "inconsistent reader abstention": 4
+  },
+  "by_variant": {
+    "dense": {
+      "abstention requires insufficient confidence": 3,
+      "valid": 12,
+      "inconsistent reader abstention": 1
+    },
+    "dense_reranked": {
+      "valid": 13,
+      "inconsistent reader abstention": 1,
+      "abstention requires insufficient confidence": 2
+    },
+    "hybrid": {
+      "valid": 11,
+      "inconsistent reader abstention": 2,
+      "abstention requires insufficient confidence": 3
+    },
+    "hybrid_reranked": {
+      "valid": 14,
+      "abstention requires insufficient confidence": 2
+    }
+  },
+  "citation_identity_failures": 0,
+  "substantive_or_abstention_contract_failures": 14,
+  "answers_changed": false,
+  "gold_loaded": false,
+  "provider_requests": 0,
+  "input_hashes": {
+    "runtime\\memgallery-v7\\chat-citation-v71\\reader-packs.jsonl": "614a9c361d39275592dcb9e74ecf4cce8bdc127513ddb74ee3f2058c03a78f49",
+    "runtime\\memgallery-v7\\chat-citation-v71\\reader-answers.jsonl": "60c9157d48c1a593b2099413843b83b54ddd1e9786e78861ada18555d2d56ff4"
+  }
+}

@@ -46,5 +46,12 @@ class KnownResponseRecoveryTests(unittest.TestCase):
         attempt=self.observe();self.run.acknowledge_known_contract_rejection(self.slot,self.ledger.path,attempt)
         next_slot=self.run.claim('gpt-4o-mini','.25')
         self.assertRaises(ValueError,self.run.acknowledge_known_contract_rejection,next_slot,self.ledger.path,attempt)
+    def test_tighter_cap_keeps_existing_claim_and_never_raises_limits(self):
+        self.observe();self.run.tighten_limits(1,'.25')
+        self.assertEqual(self.run.summary()['request_claims'],1)
+        self.assertEqual(self.run.summary()['cumulative_preflight_micro_cny'],250000)
+        self.assertRaises(ValueError,self.run.tighten_limits,2,'.5')
+        self.assertRaises(ValueError,self.run.tighten_limits,1,'.2')
+        self.assertRaises(ValueError,self.run.claim,'gpt-4o-mini','.25')
 
 if __name__=='__main__':unittest.main()

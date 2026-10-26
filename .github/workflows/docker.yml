@@ -1,0 +1,97 @@
+name: Docker deployment validation
+
+on:
+  push:
+    branches:
+      - main
+      - codex/v6-research-docker
+    paths:
+      - .github/workflows/docker.yml
+      - Dockerfile
+      - .dockerignore
+      - compose*.yaml
+      - requirements-docker.txt
+      - agent_memory/**
+      - deploy/**
+      - scripts/verify_container.py
+      - scripts/container_backup.py
+      - scripts/init_container_secret.py
+      - scripts/*embedding*smoke*.py
+      - tests/test_container*.py
+      - tests/test_verify_container.py
+      - tests/test_*embedding*smoke*.py
+      - docs/embedding-model-smoke.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Do not interrupt a running validator's cleanup when another commit arrives.
+concurrency:
+  group: docker-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  docker:
+    name: Build and verify the deterministic container
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      # Official action tag v6.1.0, verified against actions/checkout.
+      - name: Check out the exact commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Verify the application contract without model calls
+        run: |
+          python3 -B -m unittest discover -s tests -p 'test_container_app.py' -v
+          python3 -B -m unittest discover -s tests -p 'test_container_backup.py' -v
+          python3 -B -m unittest discover -s tests -p 'test_verify_container.py' -v
+
+      # Exercise imports inside the shipped Python 3.11 image, not the runner's
+      # unrelated Python installation. Only authored helper scripts are mounted.
+      - name: Build image and verify all embedding smoke imports
+        run: |
+          docker build --pull --tag trace-mem-mm:ci-smoke-import .
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+            trace-mem-mm:ci-smoke-import python -B -c \
+            "import agent_memory.embedding_smoke_app, agent_memory.granted_embedding_smoke, deploy.embedding_smoke_test, deploy.audit_embedding_smoke, scripts.prepare_embedding_smoke_grant, scripts.reconcile_embedding_smoke_grant; print('Embedding smoke imports passed; no credentials or provider calls.')"
+
+      - name: Verify finite embedding smoke contracts without providers
+        run: |
+          for pattern in 'test_embedding_smoke*.py' 'test_granted_embedding_smoke.py'; do
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+              trace-mem-mm:ci-smoke-import python -B -m unittest discover -s tests -p "$pattern" -v
+          done
+
+      # Owns a unique disposable Compose project, synthetic data and test secret.
+      # Checks real HTTP, restart persistence, non-root/read-only settings, and
+      # cleans only its own resources. No registry push or provider key is used.
+      - name: Build and exercise Docker Compose
+        run: python3 -B scripts/verify_container.py --output artifacts/container-validation.json
+
+      # Upload only the sanitized summary, never volumes, secrets or raw logs.
+      # Official action tag v7.0.2, verified against actions/upload-artifact.
+      - name: Save the container validation summary
+        if: ${{ always() && hashFiles('artifacts/container-validation.json') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: container-validation-${{ github.sha }}
+          path: artifacts/container-validation.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove this job's import-check image
+        if: ${{ always() }}
+        run: |
+          if docker image inspect trace-mem-mm:ci-smoke-import >/dev/null 2>&1; then
+            docker image rm trace-mem-mm:ci-smoke-import
+          fi

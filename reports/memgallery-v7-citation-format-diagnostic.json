@@ -1,0 +1,153 @@
+{
+  "state": "final_diagnostic",
+  "checked_at_utc": "2026-10-26T04:45:26.284968+00:00",
+  "complete_reader": true,
+  "counts": {
+    "responses": 64,
+    "strict_invalid": 58,
+    "strict_citation_failure": 56,
+    "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 21,
+    "all_round_labels_unique_in_context_requires_identity_completion": 19,
+    "all_round_labels_globally_unique_requires_identity_completion": 19,
+    "strict_valid": 6,
+    "empty_citation_array": 8,
+    "strict_abstention_failure": 2
+  },
+  "citation_items": {
+    "single_session_label": 45,
+    "single_round_label_unique_supplied": 122,
+    "image_id_instead_of_source_id": 5,
+    "unrecognized_source_reference": 1
+  },
+  "by_variant": {
+    "dense": {
+      "responses": 16,
+      "strict_invalid": 14,
+      "strict_citation_failure": 13,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 2,
+      "strict_valid": 2,
+      "empty_citation_array": 3,
+      "all_round_labels_unique_in_context_requires_identity_completion": 5,
+      "all_round_labels_globally_unique_requires_identity_completion": 5,
+      "strict_abstention_failure": 1
+    },
+    "dense_reranked": {
+      "responses": 16,
+      "strict_invalid": 15,
+      "strict_citation_failure": 15,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 7,
+      "all_round_labels_unique_in_context_requires_identity_completion": 6,
+      "all_round_labels_globally_unique_requires_identity_completion": 6,
+      "strict_valid": 1,
+      "empty_citation_array": 1
+    },
+    "hybrid": {
+      "responses": 16,
+      "strict_invalid": 14,
+      "strict_citation_failure": 13,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 6,
+      "strict_valid": 2,
+      "empty_citation_array": 3,
+      "all_round_labels_unique_in_context_requires_identity_completion": 1,
+      "all_round_labels_globally_unique_requires_identity_completion": 1,
+      "strict_abstention_failure": 1
+    },
+    "hybrid_reranked": {
+      "responses": 16,
+      "strict_invalid": 15,
+      "strict_citation_failure": 15,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 6,
+      "all_round_labels_unique_in_context_requires_identity_completion": 7,
+      "all_round_labels_globally_unique_requires_identity_completion": 7,
+      "strict_valid": 1,
+      "empty_citation_array": 1
+    }
+  },
+  "by_point": {
+    "TTL": {
+      "responses": 4,
+      "strict_invalid": 4,
+      "strict_citation_failure": 4,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 4
+    },
+    "VS": {
+      "responses": 12,
+      "strict_invalid": 12,
+      "strict_citation_failure": 10,
+      "all_round_labels_unique_in_context_requires_identity_completion": 3,
+      "all_round_labels_globally_unique_requires_identity_completion": 3,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 6,
+      "strict_abstention_failure": 2,
+      "empty_citation_array": 2
+    },
+    "AR": {
+      "responses": 8,
+      "strict_valid": 6,
+      "empty_citation_array": 6,
+      "strict_invalid": 2,
+      "strict_citation_failure": 2,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 2
+    },
+    "TR": {
+      "responses": 8,
+      "strict_invalid": 8,
+      "strict_citation_failure": 8,
+      "all_round_labels_unique_in_context_requires_identity_completion": 4,
+      "all_round_labels_globally_unique_requires_identity_completion": 4
+    },
+    "FR": {
+      "responses": 4,
+      "strict_invalid": 4,
+      "strict_citation_failure": 4
+    },
+    "KR": {
+      "responses": 4,
+      "strict_invalid": 4,
+      "strict_citation_failure": 4
+    },
+    "VR": {
+      "responses": 4,
+      "strict_invalid": 4,
+      "strict_citation_failure": 4,
+      "all_round_labels_unique_in_context_requires_identity_completion": 1,
+      "all_round_labels_globally_unique_requires_identity_completion": 1,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 3
+    },
+    "CD": {
+      "responses": 8,
+      "strict_invalid": 8,
+      "strict_citation_failure": 8,
+      "all_round_labels_unique_in_context_requires_identity_completion": 5,
+      "all_round_labels_globally_unique_requires_identity_completion": 5,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 2
+    },
+    "MR": {
+      "responses": 12,
+      "strict_invalid": 12,
+      "strict_citation_failure": 12,
+      "all_round_labels_unique_in_context_requires_identity_completion": 6,
+      "all_round_labels_globally_unique_requires_identity_completion": 6,
+      "flattened_adjacent_session_round_pairs_supplied_requires_restructuring": 4
+    }
+  },
+  "input_hashes": {
+    "runtime/memgallery-v7/chat-temperature0/FROZEN_COMPATIBILITY.json": "67a9b9191f72333e140b9c91cb0c52d1e849171af7f144ea42989e4bcdd5b176",
+    "runtime/memgallery-v7/chat-temperature0/FROZEN_READER.json": "f663d384e2a8d66758475b9b385bd0e4f857e48dae1259aa191723b5adceed75",
+    "runtime/memgallery-v7/chat-temperature0/FROZEN_LIVE.json": "4bf397d3e4ff0d24cf54844cd29db8169d9af9e2f187cea06206f1159581ba4a",
+    "runtime/memgallery-v7/chat-temperature0/reader-packs.jsonl": "42fdcecaa07bfcaf833ca884496075eac23ee4b77eec1130276defca622776d0",
+    "runtime/memgallery-v7/encoding/FROZEN_ENCODING.json": "a03f35484f6428150ffef62ac46d353cd05250df129fc05c94e389f7a23e93be",
+    "runtime/memgallery-v7/encoding/source-mapping.json": "0c899dd2e5164acfededccd3749364a80afaf5439d0e257315571e6a12e2f173",
+    "scripts/audit_memgallery_v7_citation_format.py": "b22480a09eb83e9468b537b0a91a8367d0aacf788aee055719de3599ec44caf5",
+    "runtime/memgallery-v7/chat-temperature0/READER_COMPLETED.json": "dec334417b0869efc06ec57753d7bd6367c6876c8350f047b18e073f6ea5bb5f"
+  },
+  "answer_snapshot_file": "runtime/memgallery-v7/chat-temperature0/reader-answers.jsonl",
+  "answer_snapshot_sha256": "18e4aab2221eb65f4ed521e98ec79817da593d93e1ddb46a07a53488eac5d7ec",
+  "primary_strict_outputs_unchanged": true,
+  "raw_response_files_unchanged": true,
+  "gold_loaded": false,
+  "provider_requests": 0,
+  "raw_content_or_ids_in_report": false,
+  "hypothetical_json_pair_rule": "Parse existing citation string as JSON two-string list; compact JSON only; exact supplied ID membership and duplicate checks still required.",
+  "incomplete_label_policy": "Session-only, round-only and flattened pairs require identity completion or restructuring; diagnosed only, never silently normalized.",
+  "interpretation": "Posthoc structural diagnosis, not a new test or accuracy score. Any later secondary interpretation must be independently frozen and retain original strict results."
+}

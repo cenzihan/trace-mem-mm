@@ -10,7 +10,8 @@ class DevelopmentRun:
     def __init__(self,path,*,create=False,max_requests=32,max_reservation_cny='10',approval_scope='standard_50_10'):
         self.path=Path(path)
         if create:
-            scopes={'standard_50_10':(50,10000000),'native_100_20':(100,20000000)}
+            scopes={'standard_50_10':(50,10000000),'native_100_20':(100,20000000),
+                    'atm_v5_embedding_1209_6045':(1209,60450000)}
             if approval_scope not in scopes:raise ValueError('unknown explicit approval scope')
             allowed_requests,allowed_money=scopes[approval_scope]
             if not 1<=max_requests<=allowed_requests or not 0<micro_cny(max_reservation_cny)<=allowed_money:
@@ -54,6 +55,18 @@ class DevelopmentRun:
             if db.execute("SELECT 1 FROM calls WHERE state NOT IN ('complete','rejected_response')").fetchone():
                 raise ValueError('uncertain attempt retained; cannot declare completed')
             db.execute("UPDATE run SET state='complete'")
+
+    def tighten_limits(self,max_requests,max_reservation_cny):
+        """Lower an existing run's caps without resetting claims or reservations."""
+        amount=micro_cny(max_reservation_cny)
+        if type(max_requests) is not int or max_requests<1 or amount<=0:raise ValueError('positive tighter limits required')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old_requests,old_cap,state=db.execute('SELECT max_requests,cap,state FROM run').fetchone()
+            count,held=db.execute('SELECT COUNT(*),coalesce(SUM(held),0) FROM calls').fetchone()
+            if state!='active' or not count<=max_requests<=old_requests or not held<=amount<=old_cap:
+                raise ValueError('limits may only decrease without hiding existing usage')
+            db.execute('UPDATE run SET max_requests=?,cap=? WHERE id=1',(max_requests,amount))
 
     def acknowledge_known_contract_rejection(self,ordinal,ledger_path,attempt_id):
         """Explicit recovery only: a completed HTTP200 response rejected by schema.
