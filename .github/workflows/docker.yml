@@ -16,8 +16,11 @@ on:
       - scripts/verify_container.py
       - scripts/container_backup.py
       - scripts/init_container_secret.py
+      - scripts/*embedding*smoke*.py
       - tests/test_container*.py
       - tests/test_verify_container.py
+      - tests/test_*embedding*smoke*.py
+      - docs/embedding-model-smoke.md
   workflow_dispatch:
 
 permissions:
@@ -48,6 +51,27 @@ jobs:
           python3 -B -m unittest discover -s tests -p 'test_container_backup.py' -v
           python3 -B -m unittest discover -s tests -p 'test_verify_container.py' -v
 
+      # Exercise imports inside the shipped Python 3.11 image, not the runner's
+      # unrelated Python installation. Only authored helper scripts are mounted.
+      - name: Build image and verify all embedding smoke imports
+        run: |
+          docker build --pull --tag trace-mem-mm:ci-smoke-import .
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+            trace-mem-mm:ci-smoke-import python -B -c \
+            "import agent_memory.embedding_smoke_app, agent_memory.granted_embedding_smoke, deploy.embedding_smoke_test, deploy.audit_embedding_smoke, scripts.prepare_embedding_smoke_grant, scripts.reconcile_embedding_smoke_grant; print('Embedding smoke imports passed; no credentials or provider calls.')"
+
+      - name: Verify finite embedding smoke contracts without providers
+        run: |
+          for pattern in 'test_embedding_smoke*.py' 'test_granted_embedding_smoke.py'; do
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+              trace-mem-mm:ci-smoke-import python -B -m unittest discover -s tests -p "$pattern" -v
+          done
+
       # Owns a unique disposable Compose project, synthetic data and test secret.
       # Checks real HTTP, restart persistence, non-root/read-only settings, and
       # cleans only its own resources. No registry push or provider key is used.
@@ -64,3 +88,10 @@ jobs:
           path: artifacts/container-validation.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove this job's import-check image
+        if: ${{ always() }}
+        run: |
+          if docker image inspect trace-mem-mm:ci-smoke-import >/dev/null 2>&1; then
+            docker image rm trace-mem-mm:ci-smoke-import
+          fi
