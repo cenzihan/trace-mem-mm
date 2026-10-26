@@ -9,6 +9,10 @@ the original Qwen/Qwen3-VL-Reranker-2B scoring model. The private scorer respons
 must identify revision `4bd860ac4f15ad1897a214615cccc700f8f71818` and weights SHA256
 `466ec01961061e9d7f804b4fb1625fb6f406106cd1567e026096d4736fa9d5b9`.
 Hosted aliases are not considered interchangeable with these weights.
+The [Bailian API reference](https://help.aliyun.com/zh/model-studio/text-rerank-api)
+lists `qwen3-vl-rerank`, but the checked reference does not establish that it is
+this exact 2B checkpoint. The user's requirement is exact model identity, so the
+hosted alternative is excluded and no hosted reranker requests were made.
 
 Original source text and ordered image parts are preserved as returned evidence.
 GPT summaries are derived ranking metadata. Only generated text quotations found
@@ -17,6 +21,9 @@ are omitted and counted. The original provider receipt and summary are unchanged
 This fixes a local validation failure observed on the third native Add: seven
 provider responses were already durable, but that Add had not committed. Recovery
 used the exact saved response, without another request for that source.
+That recovery completed once. A later acceptance attempt stopped during the
+private scorer connectivity check, before dispatching any new model request.
+The current continuation retains the same inputs, request IDs, grant and receipts.
 
 Qwen scores source text plus the generated source summary; it does not receive
 image bytes in this candidate. Source images are sent to GPT with low image
@@ -54,3 +61,7 @@ included in this repository. Official Smoke has not run.
 
 Validation of the source change: 598 offline checks passed. Full native acceptance
 was still running when this candidate checkpoint was prepared.
+The pinned GPU scorer is currently reached through an authenticated private
+tunnel. Its bounded temporary process still needs a persistent deployment before
+an official endpoint can be offered; private connectivity alone is not production
+acceptance.
