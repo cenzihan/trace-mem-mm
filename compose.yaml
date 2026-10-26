@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    image: trace-mem-mm:deterministic-preview
+    image: ${TRACEMEM_IMAGE:-trace-mem-mm:deterministic-preview}
     init: true
     restart: unless-stopped
     ports:
@@ -23,11 +23,18 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 128
+    mem_limit: ${TRACEMEM_MEMORY_LIMIT:-1g}
+    cpus: ${TRACEMEM_CPUS:-2.0}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     stop_grace_period: 1950s
 
 secrets:
   tracemem_token:
-    file: ./.secrets/service_token
+    file: ${TRACEMEM_SECRET_FILE:-./.secrets/service_token}
 
 volumes:
   memory-data:

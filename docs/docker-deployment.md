@@ -1,88 +1,98 @@
-# Docker 部署预览与 V6 服务化路线
+# Docker 部署与服务器准备
 
-2026-10-26。本仓库已完成 V6 研究实验；这里提供的是现有确定性 Add/Search 服务的容器部署预览，尚不是成绩对应的 V6 在线服务，也不是正式发布版。`/health` 会明确返回 `deployment_profile=deterministic_container`、`experiment_v6_online=false`。配置为其他模式会启动失败，不会静默切换到基线。
+2026-10-26。用户已恢复 Docker 部署准备，服务器尚未租用。
 
-“离线实验”指固定数据通过脚本完成检索、重排、回答和评分。它实际使用了 GPU 与模型 API；“在线服务”则需要持续接收新 Add/Search，并在新数据上维护和查询索引。这两种运行方式不能仅靠添加 Dockerfile 相互替代。
+当前镜像运行**基础 Add/Search 服务**：BM25／规则检索、原始图文持久化、用户范围隔离。它尚未包含 V7 实验的 Dense＋重排在线流水线。健康接口明确报告 dense 和 reranker 禁用；不能把 94.62% 实验 Recall@20 作为该容器的线上成绩。设置不支持的模式会拒绝启动。
 
-## 当前容器交付
+## 服务器选择
 
-- Linux Python 3.11 镜像，固定 Gunicorn 26.2.0 wheel 与 SHA256；只复制 `agent_memory/` 和 `deploy/`。
-- 独立 WSGI factory，继续使用现有 Application、SQLite 及用户隔离逻辑；不修改只允许回环地址的开发 CLI。
-- 一个进程、四个线程，保持 Add 的进程内写锁；每次操作使用独立 SQLite 连接。没有声称启用了 WAL，也没有进行多副本写入验证。
-- 非 root UID/GID 10001、只读根文件系统、`/tmp` 临时盘、`/data` 持久卷、健康检查与容器停机宽限。
-- Add/Search 强制认证；服务 token 通过 Compose secret 文件挂载，不是模型 API key。`/health` 按现有协议免认证。
-- 宿主端口固定绑定 `127.0.0.1`。Docker build context 采用允许列表，语料、QA、向量、账本、收据、模型和 Git 历史均不进入镜像。
+初期单机试用建议 Ubuntu 24.04 LTS x86_64、4 vCPU、8 GB 内存、80 GB SSD。这是工程起步估算，尚无容量或并发 SLA；媒体数据量增加时需要扩容磁盘。当前基础服务无需 GPU。
 
-## 启动步骤
+真正部署 Dense＋重排还需要在线 embedding 索引和常驻重排模型。可把 CPU API 与 GPU scorer 分开；GPU 显存应由实际服务批量、输入长度和负载验证决定，本包暂不要求特定 GPU。服务器需要能访问所选 provider 官方端点；本次准备不自动调用模型。
 
-在装有 Docker Engine 或 Docker Desktop **Linux containers** 和 Compose v2 的主机上，从本仓库根目录执行：
+先保留宿主端口 127.0.0.1:8765，用 SSH 隧道验收。公网 API 需后续域名／TLS 网关。共享服务 token 适用于可信上游代理各个 user_id，不提供不可信用户直接接入所需的 token 与用户范围授权。
 
-```bash
-python scripts/init_container_secret.py
-docker compose config --quiet
-docker compose build
-docker compose up -d --wait
-curl http://127.0.0.1:8765/health
-```
+## 镜像与验证
 
-Windows 可用 `python`；Linux 若只有 `python3`，替换第一条命令即可。初始化工具只创建 `.secrets/service_token`，不输出 token，也不覆盖既存文件。在 POSIX 上，私有父目录为 0700，文件为 0644，以便非 root 容器通过显式挂载读取；Windows 依赖宿主目录 ACL。`.secrets/` 已被 Git 忽略。客户端使用该文件中的值构造 `Authorization: Bearer …`，不要把 token 写进仓库或 URL。
+Python 3.11 slim Bookworm 的 OCI index 已固定到 sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf，2026-10-26 从 Docker 官方 registry 核实；Gunicorn 26.2.0 wheel 也固定 SHA256。实际验证平台以 CI 摘要为准。
 
-数据保存在 Compose 项目的 `memory-data` 命名卷；替换镜像、重建容器或普通 `docker compose down` 不删除该卷。备份应调用现有 SQLite backup API，例如：
+一个进程、四线程，SQLite 持久卷位于 /data。容器 UID/GID 10001、只读根目录、临时 /tmp、无 capabilities、禁止新增权限。默认 CPU 上限 2 核、内存 1 GB、128 PID；日志每文件 10 MB，保留 3 个。这些是限制，不是实测容量保证。构建允许列表排除密钥、数据、研究结果、账本和 Git 历史。
 
-```bash
-docker compose exec -T api python -m agent_memory --db /data/system.sqlite backup /data/backup-20261026.sqlite
-```
+本机 Windows 没有 Docker CLI／可用 Linux Engine，本地预检因此失败，这不等于镜像失败或成功。GitHub 工作流 [.github/workflows/docker.yml](../.github/workflows/docker.yml) 在 Ubuntu 24.04 执行真实验证。对应提交的成功运行与 JSON 摘要才是镜像通过的证据。
 
-备份文件仍在同一卷中；实际运维还需把备份复制到独立存储。不要把实验工作区的共享预算数据库或原始语料目录当成服务数据库挂载。
+在已有 Docker Engine 和 Compose v2 的 Linux 或 Docker Desktop Linux containers 主机执行：
 
-## 独立测试卷验证
+~~~bash
+python3 scripts/verify_container.py --output artifacts/container-validation.json
+~~~
 
-以下检查会写入固定合成图文，仅在独立 Compose 项目／测试卷中运行。它验证真实 HTTP、认证、幂等、冲突、用户隔离、图文原序与重建后持久化，不是官方 Smoke，也不调用模型：
+它使用随机项目、随机测试 token、合成数据和独立卷，依次验证构建、健康、认证、非 root／只读配置、资源限制、回环端口、幂等冲突、用户隔离和图文顺序；重建容器后查询原数据；再导出备份、恢复到另一新卷并核对查询。最后只删除自己的测试容器、卷和临时镜像，不做全局 prune，不使用已有服务数据，不调用模型或官方评测。
 
-```bash
-docker compose -p tracemem-container-check up -d --build --wait
-docker compose -p tracemem-container-check exec -T api python deploy/smoke_test.py seed
-docker compose -p tracemem-container-check up -d --force-recreate --wait
-docker compose -p tracemem-container-check exec -T api python deploy/smoke_test.py verify
-docker compose -p tracemem-container-check down
-```
+## 新服务器启动
 
-若默认服务已占用 8765，先在 shell 中设置 `TRACEMEM_PORT` 为另一个空闲端口。脚本从容器内部访问 8000，宿主映射变化不会影响检查。测试卷默认保留，删除测试卷应由操作者明确选择。
+按 [Docker 官方 Ubuntu 安装文档](https://docs.docker.com/engine/install/ubuntu/)安装 Engine、Buildx 和 Compose plugin。先确认 docker version 和 docker compose version 可用。以下命令使用有 Docker 权限的同一登录用户。
 
-当前 Windows 环境没有找到 Docker CLI／服务，已有 GPU1 主机的当前用户也找不到 Docker 命令。因此**镜像构建、Compose 启动和上述容器内检查尚未实际验证**。本地能验证 WSGI factory 与回环 HTTP 行为，不能把这些测试记为 Docker 构建成功。这里没有自动安装 Docker、启动公网服务或提交官方评测。
+获取私有仓库部署分支。服务器须先配置有权读取该仓库的 Git 认证；不要把 token 填进命令 URL。
 
-导出仓库 `python -B scripts/run_checks.py` 共 372 项通过。新增验证包含三种认证方式的实际回环 HTTP、合成图文 Add/Search、幂等／冲突、隔离，以及关闭后重建应用读取同一数据库；Compose YAML 语法解析通过，Docker Engine 的配置验证仍待执行。
+~~~bash
+git clone --branch codex/v6-research-docker git@github.com:cenzihan/trace-mem-mm.git
+cd trace-mem-mm
+git rev-parse HEAD
+python3 scripts/verify_container.py --output artifacts/server-container-validation.json
+~~~
 
-## 真正部署 V6 还需要完成什么
+确认该提交验证通过，再启动运行实例。所有命令在仓库根目录执行，固定项目名 tracemem，避免目录名变化导致使用另一套卷：
 
-建议保留两个计算组件，而不是把实验脚本作为 HTTP 请求处理器：
+~~~bash
+python3 scripts/init_container_secret.py
+docker compose -p tracemem config --quiet
+docker compose -p tracemem build --pull
+docker compose -p tracemem up -d --wait --wait-timeout 90
+curl --fail http://127.0.0.1:8765/health
+~~~
 
-```mermaid
-flowchart LR
-    Client[Add / Search 调用方] --> Gateway[TLS 反向代理]
-    Gateway --> API[CPU API 服务]
-    API --> State[用户隔离的原文、媒体与索引]
-    API --> Embed[text-embedding-v4 适配器]
-    API --> Reranker[私网 GPU 重排服务]
-    Reranker --> Model[固定 Qwen reranker 快照]
-```
+初始化 secret 仅首次执行，拒绝覆盖既存 token，不输出值。POSIX 父目录 0700，文件 0644，供容器单文件挂载读取。此服务 token 与 OpenAI／百炼密钥无关；Add/Search 客户端使用 Authorization: Bearer 加该值，不写进 URL、仓库或日志。
 
-1. **在线 Add／索引**：将原文、原图与来源身份持久化；指定 embedding／视觉提取适配器使用 Linux 可用的 secret 注入与持久预算账本。一个来源未完成必要索引时不能提前返回成功。现有 Windows Credential Manager 入口不能原样放进 Linux 镜像。
-2. **在线 Search**：按 `user_id` 从动态索引取固定候选，采用冻结的 Dense＋重排主候选与 Hybrid＋重排对照。V6 的已有 Top100 文件和公共开发集缓存不能充当在线新用户的检索数据。
-3. **重排组件**：固定模型版本，启动时只加载一次，通过私网批量打分；GPU 编号、显存预算、队列容量、超时和过载策略在服务层定义。不能在每次 Search 中启动一次实验 worker。遇到错误应报告失败或明确标注预先定义的降级模式，不能把降级结果包装为 V6。
-4. **一致性与可靠性**：验证并发 Add/Search、索引恢复、断电后幂等、未知 provider 结果不重发、模型服务不可用和版本迁移；先通过独立场景端到端验收，再确定正式版本号和镜像 digest。
-5. **外部可用性**：确认实际部署主机、域名、TLS 与网关配置。当前共享服务 key 只认证调用方，不是每用户账户 ACL。公开多租户服务需要另行建立 key 与 `user_id` 的授权关系。
+从自己的电脑建立 SSH 隧道：
 
-平台调用的是 Add/Search；实验用 Reader 和 judge 用于评价，不应在每次 Search 内自动追加回答／评分调用。原 79 次实验的 guard 都已关闭，部署使用独立服务状态，不能重开实验计数。
+~~~bash
+ssh -N -L 8765:127.0.0.1:8765 ubuntu@SERVER_IP
+~~~
 
-协议支持较长的同步请求，但 Gunicorn 的 gthread `timeout` 是 worker 活性检测，不是逐请求截止时间。现配置的 1900 秒活性／停机宽限及 Compose 1950 秒停机宽限也不构成 30 分钟 SLA；网关的请求体上限、读写超时、客户端期限和负载测试必须一起完成。代理至少应容纳应用的 64 MiB HTTP 上限；原始媒体仍遵守单图 10 MiB、单次 30 MiB 解码总量约束。
+此后本机 http://127.0.0.1:8765/health 指向服务器，Add/Search 仍需认证。本机 8765 已占用时修改隧道左侧端口即可。实例不会自动开放公网端口。
 
-正式发布时应把基础镜像固定到已验证 digest，并保存构建、容器验证和线上健康证据。当前 `python:3.11-slim-bookworm` 是可更新 tag；不能声称逐字节可复现的镜像已交付。
+支持非敏感环境变量：TRACEMEM_PORT（8765）、TRACEMEM_IMAGE（trace-mem-mm:deterministic-preview）、TRACEMEM_MEMORY_LIMIT（1g）、TRACEMEM_CPUS（2.0）、TRACEMEM_SECRET_FILE（./.secrets/service_token）。模型 key 不应放进这些变量。
 
-## 依据
+## 备份、恢复和更新
 
-- [Gunicorn application factory](https://gunicorn.org/run/)、[线程与超时参数](https://gunicorn.org/reference/settings/)
-- [Gunicorn 26.2.0 发布与 wheel](https://pypi.org/project/gunicorn/26.2.0/)
-- [Docker Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)、[服务配置](https://docs.docker.com/reference/compose-file/services/)
-- [Docker volumes](https://docs.docker.com/engine/storage/volumes/)、[端口发布](https://docs.docker.com/engine/network/port-publishing/)
-- [当前 V6 结果](v6-results.md)、[服务协议](protocol.md)
+不要直接复制仍在写入的 SQLite 文件。工具通过 SQLite backup API 导出，检查完整性并生成 SHA256 清单；输出目录必须全新，父目录必须存在：
+
+~~~bash
+mkdir -p backups
+python3 scripts/container_backup.py backup --project tracemem --destination backups/before-update-001
+~~~
+
+目录含 database.sqlite 和 manifest.json，记录哈希、大小、实际镜像 ID 和操作者 checkout 版本。备份可能含真实用户内容，需私有保存并复制到独立存储；Git 忽略规则不等于加密。
+
+恢复验证哈希、清单和 SQLite 完整性，只允许没有已有容器或卷的新项目，且不自动启动 API。保留旧服务和旧卷，先把恢复实例放在另一个端口：
+
+~~~bash
+python3 scripts/container_backup.py restore --backup backups/before-update-001 --project tracemem-restored
+TRACEMEM_PORT=8766 docker compose -p tracemem-restored up -d --wait --wait-timeout 90
+curl --fail http://127.0.0.1:8766/health
+~~~
+
+生产恢复后用调用方自己的已知请求核对内容，不要向生产卷运行会写入合成记录的 smoke_test.py seed。
+
+更新前先备份、记录旧 commit 和镜像 ID。获取已审查提交、构建，然后同一项目 up -d --wait 会保留卷。停止用 docker compose -p tracemem down。**运行实例不要使用 down -v**；验证工具的 --volumes 仅作用于自己的随机测试项目。尚无跨版本数据库迁移回滚保证，恢复需兼容备份的镜像并保留旧卷。
+
+## Dense＋重排服务化后续
+
+1. 在线 Add 持久化原文原图，以 Linux secret 注入 embedding provider，维护每用户动态向量索引；完成必要索引后才返回成功。
+2. Search 生成查询向量，在对应用户索引取 Top100，再交 GPU scorer 排序。冻结实验缓存不能替代新用户在线索引。
+3. GPU 服务固定模型、常驻加载，增加批处理、队列、超时与故障策略；每次 HTTP 请求不应启动实验 worker。
+4. 验证未知 provider 结果恢复、并发和重启一致性，再用独立场景验收。已关闭实验 guard 和账本不复用为服务状态。
+
+平台调用 Add/Search；Reader 与 Judge 属实验评估，不自动加入每次 Search。Gunicorn 活性和停机参数不是逐请求截止时间，也不构成 30 分钟 SLA；公网网关、64 MiB HTTP 上限和负载能力需服务器到位后验证。
+
+依据：[Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)、[Compose 服务配置](https://docs.docker.com/reference/compose-file/services/)、[Docker volumes](https://docs.docker.com/engine/storage/volumes/)、[GitHub runner](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)、[V7/V7.1 结果](v7-independent-scene.md)、[协议](protocol.md)。

@@ -6,7 +6,7 @@
 
 16题Reader的严格代理分为Dense54.69、Dense＋重排56.25、Hybrid56.25、Hybrid＋重排56.25。配对区间跨零，尚未证明稳定的回答提升。V7.1消除了引用ID错误，但仍有14/64份拒答状态不一致，均计零；保留原V7的58/64无效结果和全部失败记录。
 
-本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认在线服务未替换，Docker按用户要求暂缓。
+本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认在线服务未替换。按最新要求开始准备 Docker 部署，当前容器提供基础 Add/Search，Dense＋重排在线接入仍待完成。
 
 完整结果、图表、置信区间与调用审计见[V7/V7.1结果](docs/v7-independent-scene.md)。[V6结果](docs/v6-results.md)、[V5结果](docs/v5-results.md)和[开源方法核查](docs/opensource-methods-20261025.md)保留为历史里程碑。当前研究代码使用私有[Draft PR #1](https://github.com/cenzihan/trace-mem-mm/pull/1)继续迭代。最终源码517项、发布副本493项工程测试通过。
 
@@ -14,18 +14,19 @@
 Private local research prototype for the Academic Multimodal Agent Memory Leaderboard.
 No public deployment, enrollment, official Smoke or Full has run.
 
-## Release status and Docker preview
+## Docker deployment preparation
 
-**V6 is a completed research experiment, not a production release.** The measured
-V6 dense/rerank pipeline is not yet wired into the online Add/Search service.
-The new Docker/Compose files package the existing deterministic service with
-authentication, persistent SQLite storage and explicit health metadata; they do
-not claim the V6 benchmark scores for live traffic. Docker Engine was unavailable
-on the inspected hosts, so an image build and container run are still unverified.
-The V6/Docker baseline passed 372 offline checks, including authenticated
-loopback HTTP and persistence across application recreation.
+**The current image serves deterministic Add/Search; Dense + rerank is not yet
+an online service.** Docker deployment preparation is now active. The image has
+a pinned Python base digest, authenticated API, non-root execution, persistent
+SQLite volume, bounded resources and rotated logs. Host access defaults to an
+SSH tunnel. A Linux CI job builds and validates real containers, including
+recreation and backup/restore into a fresh volume. Its status and aggregate
+artifact are the evidence for container validation; source tests alone do not
+confirm an image build. No rented server, public endpoint or formal release is
+being claimed.
 
-Read the [Docker steps and V6 integration plan](docs/docker-deployment.md),
+Read the [server setup, Docker validation and integration plan](docs/docker-deployment.md),
 [RAW-RAG / DSH design comparison](docs/raw-rag-dsh-design.md), and
 [clean-export provenance](docs/export-provenance.md). This publication uses a
 new snapshot based on the previous remote main, omitting unpublished history

@@ -47,6 +47,7 @@ def main():
     assert status==200 and health['mode']=='local_deterministic' and health['experiment_v6_online'] is False
     query=dict(user_id=ADD['user_id'],query='Synthetic cobalt memo 173',top_k=5)
     assert request('POST','/search',query,False)[0]==401
+    assert request('POST','/add',ADD,False)[0]==401
     if args.phase=='seed':
         assert request('POST','/add',ADD)[0]==200
         assert request('POST','/add',ADD)[0]==200
