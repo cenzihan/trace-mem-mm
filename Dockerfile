@@ -6,8 +6,8 @@ COPY requirements-docker.txt /app/requirements-docker.txt
 RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements-docker.txt \
     && groupadd --gid 10001 tracemem \
     && useradd --uid 10001 --gid 10001 --no-create-home tracemem \
-    && mkdir -p /data \
-    && chown 10001:10001 /data
+    && mkdir -p /data /app/runtime \
+    && chown 10001:10001 /data /app/runtime
 
 COPY agent_memory/ /app/agent_memory/
 COPY deploy/ /app/deploy/
