@@ -1,0 +1,46 @@
+{
+  "stage": "complete",
+  "version": "tracemem-mm-online-v1.0.0",
+  "official_smoke": false,
+  "actual_native_data": true,
+  "adds": 2,
+  "searches": 2,
+  "idempotence": true,
+  "restart_persistence": true,
+  "original_evidence_verified": true,
+  "user_isolation": true,
+  "actual_provider_calls": {
+    "gpt-4o-mini": 4,
+    "text-embedding-v4": 4
+  },
+  "receipt_summary": [
+    [
+      "complete",
+      1,
+      "usage_only",
+      8,
+      0
+    ]
+  ],
+  "reranker": {
+    "model": "Qwen/Qwen3-VL-Reranker-2B",
+    "revision": "4bd860ac4f15ad1897a214615cccc700f8f71818",
+    "weights_sha256": "466ec01961061e9d7f804b4fb1625fb6f406106cd1567e026096d4736fa9d5b9",
+    "requests": 2,
+    "pairs": 8,
+    "elapsed_seconds": 1237.19,
+    "generation": false,
+    "source_text_only": true
+  },
+  "initial_auxiliary_metadata_failure_preserved": true,
+  "recovery": "one known original response reused without HTTP replay; nontext quote entries omitted, original summary and evidence unchanged",
+  "search_seconds": [
+    3.447,
+    1.524
+  ],
+  "offline_checks": 616,
+  "public_tls_verified": true,
+  "unauthenticated_search_http_status": 401,
+  "source_code_commit": "28f2c596087ae01b605f1259a89e99ac91f968bf",
+  "scope": "deployment preflight on prior native data; not a new benchmark or official result"
+}

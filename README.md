@@ -2,13 +2,20 @@
 
 **Current admission candidate: `tracemem-mm-online-v1.0.0`.** The production profile and operational bounds are documented in [official-service-v1](docs/official-service-v1.md). It uses the exact validated GPT / embedding / Qwen pipeline, one migrated original budget, private GPU supervision, TLS, and automatic evaluation-data deletion. 616 offline checks pass. Historical milestones below describe earlier states; official admission/score is not implied by these checks.
 
-## 当前状态
+Public endpoint: [health](https://45.192.104.173/health); authenticated Add/Search
+use the same host. The final native-data deployment preflight passed 2 Add /
+2 Search with 4 real GPT calls, 4 real embedding calls, and 8 fixed-Qwen scoring
+pairs. Idempotence, isolation, restart persistence and original-evidence checks
+passed. One GPT auxiliary-metadata failure was recovered from its saved response
+without replay; see [preflight evidence](reports/public-api-preflight.json).
+
+## 已完成的完整场景在线回归
 
 **2026-10-27：同一在线实例的真实数据验收已完成。** GPT 原始图片卡片、text-embedding-v4 DenseTop100 和固定 `Qwen/Qwen3-VL-Reranker-2B` 已连通；型号、revision 和权重哈希必须匹配，百炼托管 alias 未接入。
 
 完整旧场景 186 Add / 74 Search、幂等、冲突拒绝、用户隔离和重启持久化全部通过。实际 GPT 372 次、embedding 260 次，Qwen 7,400 对；632 份提供方收据完整，按原预算核对。前 20 条 API 消息的证据召回为 **90.52%**（60 个有证据问题，14 个空证据问题不计分母）。这是此前场景的部署回归，粒度与旧 V7 不同，不能直接作同条件比较。
 
-发布副本 598 项离线检查通过；仍是私有候选版本。验收授权已用完，GPU 服务目前有时限，公网长期服务、仓库许可证/公开范围和官网申请尚未完成。详见[在线验收与限制](docs/online-native-candidate.md)和[汇总证据](reports/online-native-acceptance.json)。
+该回归完成时有 598 项离线检查；当前服务候选已有 616 项检查通过，并已部署公网 HTTPS。原 632 次回归授权已用完，公共服务使用同一原始预算账本。详见[在线验收与限制](docs/online-native-candidate.md)和[汇总证据](reports/online-native-acceptance.json)。
 
 ## 已完成的 V7/V7.1 研究
 
@@ -21,8 +28,9 @@
 完整结果、图表、置信区间与调用审计见[V7/V7.1结果](docs/v7-independent-scene.md)。[V6结果](docs/v6-results.md)、[V5结果](docs/v5-results.md)和[开源方法核查](docs/opensource-methods-20261025.md)保留为历史里程碑。当前研究代码使用私有[Draft PR #1](https://github.com/cenzihan/trace-mem-mm/pull/1)继续迭代。最终源码517项、发布副本493项工程测试通过。
 
 
-Private local research prototype for the Academic Multimodal Agent Memory Leaderboard.
-No public deployment, enrollment, official Smoke or Full has run.
+Research prototype for the Academic Multimodal Agent Memory Leaderboard.
+Public authenticated HTTPS APIs are deployed; organizer acceptance, official Smoke
+and Full are not established by local tests.
 
 ## Docker deployment and embedding smoke
 
@@ -43,7 +51,8 @@ the user changed the configuration, one real GPT card request inside the deploye
 container succeeded, and a separate six-pair Qwen GPU smoke passed. These are
 component checks; the running Add/Search baseline still has dense/rerank disabled.
 See the [current application requirements and evidence](docs/competition-readiness-20261026.md).
-No public endpoint, official Smoke or formal release is claimed.
+The current public API candidate is described above; these historical component
+checks are not official Smoke or leaderboard results.
 
 Read the [server setup, Docker validation and integration plan](docs/docker-deployment.md),
 [real embedding smoke evidence and runbook](docs/embedding-model-smoke.md),
