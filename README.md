@@ -1,5 +1,7 @@
 # TraceMem-MM
 
+**Current admission candidate: `tracemem-mm-online-v1.0.0`.** The production profile and operational bounds are documented in [official-service-v1](docs/official-service-v1.md). It uses the exact validated GPT / embedding / Qwen pipeline, one migrated original budget, private GPU supervision, TLS, and automatic evaluation-data deletion. 616 offline checks pass. Historical milestones below describe earlier states; official admission/score is not implied by these checks.
+
 ## 当前状态
 
 **2026-10-27：同一在线实例的真实数据验收已完成。** GPT 原始图片卡片、text-embedding-v4 DenseTop100 和固定 `Qwen/Qwen3-VL-Reranker-2B` 已连通；型号、revision 和权重哈希必须匹配，百炼托管 alias 未接入。

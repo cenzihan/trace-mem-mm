@@ -1,0 +1,41 @@
+# Place this file beside source/, config/, runtime/, and secrets/.
+services:
+  api:
+    build: ./source
+    image: trace-mem-mm:online-v1.0.0
+    init: true
+    restart: unless-stopped
+    network_mode: host
+    command: [gunicorn, --config, /app/deploy/gunicorn.conf.py, --bind, '127.0.0.1:8767', --threads, '2', --max-requests, '0', 'agent_memory.service_app:create_app()']
+    environment:
+      TRACEMEM_SERVICE_ENABLED: original-ledger-owned-by-server
+      TRACEMEM_SERVICE_STATE: /app/runtime/official-v1
+      TRACEMEM_SERVICE_EXPIRES_AT: '1793896200'
+      TRACEMEM_AUTH_TOKEN_FILE: /run/secrets/service_token
+      TRACEMEM_OPENAI_TOKEN_FILE: /run/secrets/openai_token
+      TRACEMEM_BAILIAN_TOKEN_FILE: /run/secrets/bailian_token
+      TRACEMEM_RERANKER_TOKEN_FILE: /run/secrets/reranker_token
+      TRACEMEM_LEDGER_AUTHORITY_FILE: /run/config/ledger-authority.json
+      TRACEMEM_VERIFIED_PRICES_FILE: /run/config/verified-prices.json
+    volumes:
+      - ./runtime:/app/runtime
+      - ./config:/run/config:ro
+      - ./secrets/service_token:/run/secrets/service_token:ro
+      - ./secrets/openai_token:/run/secrets/openai_token:ro
+      - ./secrets/bailian_token:/run/secrets/bailian_token:ro
+      - ./secrets/reranker_token:/run/secrets/reranker_token:ro
+    read_only: true
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2.0
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8767/health',timeout=12).read()"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 1m, max-file: '2'}
