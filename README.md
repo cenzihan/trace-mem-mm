@@ -2,11 +2,19 @@
 
 ## 当前状态
 
+**2026-10-27：同一在线实例的真实数据验收已完成。** GPT 原始图片卡片、text-embedding-v4 DenseTop100 和固定 `Qwen/Qwen3-VL-Reranker-2B` 已连通；型号、revision 和权重哈希必须匹配，百炼托管 alias 未接入。
+
+完整旧场景 186 Add / 74 Search、幂等、冲突拒绝、用户隔离和重启持久化全部通过。实际 GPT 372 次、embedding 260 次，Qwen 7,400 对；632 份提供方收据完整，按原预算核对。前 20 条 API 消息的证据召回为 **90.52%**（60 个有证据问题，14 个空证据问题不计分母）。这是此前场景的部署回归，粒度与旧 V7 不同，不能直接作同条件比较。
+
+发布副本 598 项离线检查通过；仍是私有候选版本。验收授权已用完，GPU 服务目前有时限，公网长期服务、仓库许可证/公开范围和官网申请尚未完成。详见[在线验收与限制](docs/online-native-candidate.md)和[汇总证据](reports/online-native-acceptance.json)。
+
+## 已完成的 V7/V7.1 研究
+
 **V7独立场景检索、V7.1引用接口回归已完成。** Mem-Gallery完整186轮/74题，8,831个真实GPU重排对。Dense＋重排的Recall@20为94.62%，Dense为88.73%；Hybrid＋重排93.78%，Hybrid84.13%。
 
 16题Reader的严格代理分为Dense54.69、Dense＋重排56.25、Hybrid56.25、Hybrid＋重排56.25。配对区间跨零，尚未证明稳定的回答提升。V7.1消除了引用ID错误，但仍有14/64份拒答状态不一致，均计零；保留原V7的58/64无效结果和全部失败记录。
 
-本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认在线服务未替换。Docker 基础 Add/Search 已部署；3 次真实 embedding、1 次容器内 GPT 卡片调用及独立 GPU 上 6 对 Qwen 重排 smoke 已通过。三个组件仍待接入同一在线候选版本，详见[准入准备与最新模型 smoke](docs/competition-readiness-20261026.md)。
+本轮164次真实API请求（27embedding、128reader、8成功Judge、1被拒Judge），费用与预留分别记账。V7.1是同场景工程回归、作者caption文本条件，**不是正式发布或官方榜单成绩**。Dense＋重排继续作为主候选；默认服务仍保留独立的确定性配置。早期 3 次真实 embedding、1 次容器内 GPT 卡片调用及独立 GPU 上 6 对 Qwen 重排 smoke 记录见[先前准入准备与组件 smoke](docs/competition-readiness-20261026.md)；当前整体验收见上方。
 
 完整结果、图表、置信区间与调用审计见[V7/V7.1结果](docs/v7-independent-scene.md)。[V6结果](docs/v6-results.md)、[V5结果](docs/v5-results.md)和[开源方法核查](docs/opensource-methods-20261025.md)保留为历史里程碑。当前研究代码使用私有[Draft PR #1](https://github.com/cenzihan/trace-mem-mm/pull/1)继续迭代。最终源码517项、发布副本493项工程测试通过。
 
@@ -16,8 +24,9 @@ No public deployment, enrollment, official Smoke or Full has run.
 
 ## Docker deployment and embedding smoke
 
-**The running baseline serves deterministic Add/Search; Dense + rerank is not yet
-an online service.** The baseline is deployed on the user's Ubuntu 24.04 server. The image has
+**The baseline still serves deterministic Add/Search. A separate online Dense +
+rerank candidate has now passed private native-data acceptance.** The baseline
+is deployed on the user's Ubuntu 24.04 server. The image has
 a pinned Python base digest, authenticated API, non-root execution, persistent
 SQLite volume, bounded resources and rotated logs. Host access defaults to an
 SSH tunnel. A Linux CI job builds and validates real containers, including

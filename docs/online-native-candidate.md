@@ -1,7 +1,8 @@
 # Online native-data candidate
 
-Status: integration candidate under private real-data acceptance, not a formal
-release or an official AML score. The deterministic Docker profile is unchanged.
+Status: private real-data acceptance and isolated retrieval scoring completed;
+still an integration candidate, not a formal release or an official AML score.
+The deterministic Docker profile is unchanged.
 
 The opt-in `agent_memory.online_app:create_app()` composes GPT-4o-mini source
 cards, 256-dimensional text-embedding-v4 retrieval, and Dense Top100 followed by
@@ -59,9 +60,31 @@ regression, not independent unseen-scene evidence. Input files, media, questions
 model receipts, credentials, and budget databases remain private and are not
 included in this repository. Official Smoke has not run.
 
-Validation of the source change: 598 offline checks passed. Full native acceptance
-was still running when this candidate checkpoint was prepared.
+Validation of the source change: 598 offline checks passed. All 186 Add requests
+and all 74 Search requests completed. Idempotence, conflicting retry rejection,
+user isolation and container-restart persistence passed. Every returned original
+content hash matched its submitted source; every Search returned 100 items.
+
+The run used 372 actual GPT requests (returned model `gpt-4o-mini-2024-07-18`),
+260 actual `text-embedding-v4` requests, and 74 local Qwen calls scoring 7,400
+candidate pairs. All 632 provider receipts were complete and reconciled into
+the original shared ledger; no unknown attempt remained and historical rows
+were unchanged. The finite acceptance grant is fully used and must not be reset.
+
+Rankings were frozen before gold was opened. On the 60 questions with annotated
+evidence, mean fractional round-evidence Recall@20 was **90.52%**, using the first
+20 returned API messages. Recall@100 was **99.23%**. The other 14 questions have
+empty gold evidence and are excluded from the recall denominator. Search latency
+was 5.407 seconds at the median and 8.380 seconds at the maximum for this run.
+
+As a separate diagnostic, deduplicating returned messages into source rounds
+before taking the first 20 gives 93.42% recall. This can use more than 20 messages.
+Neither figure is a matched comparison with frozen V7, which ranked complete
+rounds and used a different source representation. No reader accuracy is measured.
+See [aggregate evidence](../reports/online-native-acceptance.json).
+
 The pinned GPU scorer is currently reached through an authenticated private
 tunnel. Its bounded temporary process still needs a persistent deployment before
-an official endpoint can be offered; private connectivity alone is not production
-acceptance.
+an official endpoint can be offered. Public authenticated URLs, fresh bounded
+traffic accounting, repository/license review and application submission remain
+pending. Official Smoke is still 0; private acceptance does not replace it.

@@ -1,0 +1,99 @@
+{
+  "state": "complete_native_engineering_regression",
+  "completed_at_utc": "2026-10-26T16:32:18.005529+00:00",
+  "official_score": false,
+  "formal_release": false,
+  "source_code_commit": "99326175cfde7e3e8faae009459d2cfcbce31726",
+  "offline_checks_passed": 598,
+  "dataset": {
+    "name": "Mem-Gallery Architecture_Art_Culture_Exhibition_Technology",
+    "revision": "af912daba984e896e253016b7c7e334ef92c2a6f",
+    "sessions": 14,
+    "rounds": 186,
+    "messages": 372,
+    "questions": 74,
+    "all_distractors_retained": true,
+    "original_images_verified": 36,
+    "byte_identical_protocol_images": 34,
+    "same_dimension_jpeg85_variants": 2
+  },
+  "acceptance": {
+    "adds_completed": 186,
+    "searches_completed": 74,
+    "idempotence_passed": true,
+    "conflict_passed": true,
+    "user_isolation_passed": true,
+    "restart_persistence_passed": true,
+    "rankings_sha256": "4513c3ecabcdd6b5e63e1c3da9347d87b41399384e8b51d364766df8e30d9ecb"
+  },
+  "models": {
+    "gpt-4o-mini": 372,
+    "text-embedding-v4": 260
+  },
+  "returned_models": {
+    "gpt-4o-mini-2024-07-18": 372,
+    "text-embedding-v4": 260
+  },
+  "real_provider_requests": 632,
+  "unknown_or_failed_provider_receipts": 0,
+  "reranker": {
+    "model": "Qwen/Qwen3-VL-Reranker-2B",
+    "revision": "4bd860ac4f15ad1897a214615cccc700f8f71818",
+    "weights_sha256": "466ec01961061e9d7f804b4fb1625fb6f406106cd1567e026096d4736fa9d5b9",
+    "requests": 74,
+    "pairs": 7400,
+    "elapsed_seconds": 4477.48,
+    "generation": false,
+    "source_text_only": true
+  },
+  "hosted_rerank_calls": 0,
+  "retrieval": {
+    "questions": 74,
+    "recall_denominator": 60,
+    "empty_gold_questions": 14,
+    "message_budget": {
+      "20": {
+        "fractional_recall": 0.9051686507936508,
+        "any_hit": 0.9833333333333333,
+        "all_evidence_coverage": 0.8333333333333334
+      },
+      "100": {
+        "fractional_recall": 0.9922916666666667,
+        "any_hit": 1.0,
+        "all_evidence_coverage": 0.9666666666666667
+      }
+    },
+    "unique_round_budget_diagnostic": {
+      "20": {
+        "fractional_recall": 0.9342361111111112,
+        "any_hit": 0.9833333333333333,
+        "all_evidence_coverage": 0.8833333333333333
+      },
+      "100": {
+        "fractional_recall": 0.9922916666666667,
+        "any_hit": 1.0,
+        "all_evidence_coverage": 0.9666666666666667
+      }
+    }
+  },
+  "returned_counts": {
+    "100": 74
+  },
+  "runtime_seconds": {
+    "median": 5.407,
+    "maximum": 8.38,
+    "search_total": 427.765
+  },
+  "historical_budget_rows_unchanged": true,
+  "limitations": [
+    "This API ranks messages; frozen V7 ranked complete rounds, so scores are not a matched comparison.",
+    "Primary metric maps the first k returned messages to annotated rounds; either role can identify a round.",
+    "Unique-round deduplication is a separate diagnostic and can use more than k messages.",
+    "API whole-record prefix is bounded by 30MiB media; fewer than100 returned items remain in the denominator.",
+    "GPT sees source images; Qwen scores source text plus summaries; queries use text/author captions.",
+    "No reader accuracy or official benchmark score is measured.",
+    "The initial local quote-validation failure and connectivity-only R1 failure are preserved. Exact known response recovery did not repeat the first GPT request.",
+    "The finite632-call parent grant is now fully used; do not reuse or reset it.",
+    "The current private GPU service is temporary; public endpoints, persistent serving and official application are still pending."
+  ]
+}
