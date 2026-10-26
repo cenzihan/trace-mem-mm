@@ -122,7 +122,7 @@ class BudgetedJSONTransport:
     def __init__(self,*,model,endpoint,ledger,rate,credential_reader=None,http=None,
                  mode='live',enabled=False,prices_confirmed=False,retry=None,purpose='pipeline',
                  timeout_seconds=30,max_response_bytes=4*1024*1024,usd_rates=None,sleep=time.sleep,
-                 fixed_reserve_cny=None,output_token_cap=512):
+                 fixed_reserve_cny=None,output_token_cap=512,attempt_observer=None):
         validate_endpoint(model,endpoint)
         if not isinstance(ledger,BudgetLedger) or not isinstance(rate,VerifiedRate) or rate.model!=model:
             raise ValueError('matching verified model price and persistent ledger required')
@@ -134,6 +134,9 @@ class BudgetedJSONTransport:
             if not 0<micro_cny(fixed_reserve_cny)<=10000000:
                 raise ValueError('fixed per-call hold must be within CNY 10')
         self.fixed_reserve_cny=fixed_reserve_cny
+        if attempt_observer is not None and not callable(attempt_observer):
+            raise ValueError('attempt observer must be callable')
+        self.attempt_observer=attempt_observer
         if type(output_token_cap) is not int or not 1<=output_token_cap<=2048:
             raise ValueError('explicit output cap must be within 2048')
         self.output_token_cap=output_token_cap
@@ -269,6 +272,7 @@ class BudgetedJSONTransport:
             self.ledger.mark_dispatched(attempt);tick=time.monotonic()
             status=None;returned=None;usage=None;data=None;category='network_error';reply=None
             try:
+                if self.attempt_observer is not None:self.attempt_observer(attempt)
                 reply=self.http.exchange(endpoint,raw,headers,self.timeout,self.limit)
                 if not isinstance(reply,HTTPReply) or type(reply.status) is not int or not 100<=reply.status<=599:
                     raise ProviderFailure('invalid_contract')

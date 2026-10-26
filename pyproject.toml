@@ -7,5 +7,7 @@ version = "0.1.0"
 description = "Academic multimodal memory: original evidence and isolated retrieval"
 requires-python = ">=3.11"
 dependencies = []
+[project.optional-dependencies]
+audit = ["Pillow==13.0.0"]
 [tool.setuptools.packages.find]
 include = ["agent_memory*"]

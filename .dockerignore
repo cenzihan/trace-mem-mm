@@ -1,0 +1,15 @@
+# Allow-list the build context. Never include experiments, data, keys or Git history.
+**
+!Dockerfile
+!.dockerignore
+!requirements-docker.txt
+!agent_memory/
+!agent_memory/**
+!deploy/
+!deploy/**
+**/__pycache__/
+**/*.pyc
+**/*.sqlite*
+**/*.key
+**/*.pem
+**/.env*

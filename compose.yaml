@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    image: trace-mem-mm:deterministic-preview
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TRACEMEM_PORT:-8765}:8000"
+    environment:
+      TRACEMEM_MODE: local_deterministic
+      TRACEMEM_DB: /data/system.sqlite
+      TRACEMEM_AUTH_MODE: Bearer
+      TRACEMEM_AUTH_TOKEN_FILE: /run/secrets/tracemem_token
+    secrets:
+      - tracemem_token
+    volumes:
+      - memory-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    stop_grace_period: 1950s
+
+secrets:
+  tracemem_token:
+    file: ./.secrets/service_token
+
+volumes:
+  memory-data:
