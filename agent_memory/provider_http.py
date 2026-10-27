@@ -205,7 +205,7 @@ class BudgetedJSONTransport:
                         raise ValueError('unsupported image detail')
         parts=content_parts(raw_parts)
         text_size=len(messages[0]['content'].encode('utf-8'))+sum(len(p['text'].encode('utf-8')) for p in parts if p['type']=='text')
-        if text_size>32768 or sum(p['type']=='image_url' for p in parts)>8 or media_size(parts)>MEDIA_LIMIT:
+        if text_size>getattr(self,'text_byte_limit',32768) or sum(p['type']=='image_url' for p in parts)>8 or media_size(parts)>MEDIA_LIMIT:
             raise ValueError('local card text/image input admission exceeded')
         return 128000,output
 
