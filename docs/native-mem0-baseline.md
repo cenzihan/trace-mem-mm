@@ -40,5 +40,11 @@ Local synthetic SDK tests establish protocol and persistence behavior only. They
 are neither real model calls nor benchmark scores. Each deployed version must be
 frozen and independently verified before its official submission.
 
+When PyPI connectivity is unreliable, download the locked Linux wheels with
+`pip download --only-binary=:all: --require-hashes` first, then expose that wheel
+directory on a private build network. Set build arguments `PIP_NO_INDEX=1` and
+`PIP_FIND_LINKS` to that package cache. Installation still verifies every original
+wheel hash; the cache must contain no application data or credentials.
+
 Upstream: [Mem0 source](https://github.com/mem0ai/mem0) and
 [OSS documentation](https://docs.mem0.ai/open-source/overview).
