@@ -158,6 +158,7 @@ class _ReceiptHTTP:
         try:reply = self.inner.exchange(endpoint, body, headers, timeout, max_response_bytes)
         except BaseException as exc:
             self.failure_phase=getattr(exc,'phase',None)
+            self.failure_kind=getattr(exc,'transport_kind',None)
             raise
         self.journal.received(self.fingerprint, reply, headers)
         if self.after_received is not None:

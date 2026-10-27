@@ -125,7 +125,9 @@ class NativeTests(unittest.TestCase):
     def test_search_image_gets_semantic_caption(self):
         self.store.add(self.payload)
         from base64 import b64encode
-        # Signature-valid original synthetic fixture, no external dataset.
-        uri='data:image/png;base64,'+b64encode(b'\x89PNG\r\n\x1a\nfixture').decode()
+        import io
+        from PIL import Image
+        buffer=io.BytesIO();Image.new('RGB',(40,30),'teal').save(buffer,format='PNG')
+        uri='data:image/png;base64,'+b64encode(buffer.getvalue()).decode()
         result=self.store.search(dict(user_id='alice',query=[{'type':'image_url','image_url':{'url':uri}}],top_k=100))
         self.assertEqual(self.c.calls,1);self.assertTrue(result['data'])

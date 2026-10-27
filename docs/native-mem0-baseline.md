@@ -3,7 +3,7 @@
 This opt-in profile runs the real `mem0ai==2.2.1` package. Its wheel SHA256 is
 `fe91bb91ac8926231993a4aa58df00a60c6c74c709e6a338fe399500776eef4d`.
 The Linux CPython3.11 dependency lock includes wheel hashes. This is a distinct
-experimental profile, now `tracemem-mm-mem0-v3.0.1`, with no claimed evaluation result.
+experimental profile, now `tracemem-mm-mem0-v3.0.3`, with no claimed evaluation result.
 Mem0 is Apache-2.0 licensed; its license remains in the installed distribution.
 
 Mem0 performs native additive extraction, deduplication, entity linking and hybrid
@@ -60,3 +60,33 @@ wheel hash; the cache must contain no application data or credentials.
 
 Upstream: [Mem0 source](https://github.com/mem0ai/mem0) and
 [OSS documentation](https://docs.mem0.ai/open-source/overview).
+# Streaming transport candidate (v3.0.2)
+
+The native memory algorithm and fixed academic models are unchanged. Chat Completions
+requests use streaming with `include_usage` so the connection can deliver events while
+the completion is generated. This is a reliability hypothesis after a connection
+failed while awaiting response headers, not a proven diagnosis or score improvement.
+See the [OpenAI streaming contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create).
+
+The full wire response is durably received before parsing. A valid stream must finish
+with `[DONE]`, one stopped choice, consistent completion/model identities, and final
+usage. Partial output, refusals, tool calls, model substitutions and missing usage
+cannot become stored memory. Successful wire bodies are minimized using the existing
+receipt policy; failed responses and accounting history are retained. No sent POST is
+retried. Future transport diagnostics add only a whitelisted exception kind, byte
+count and streaming flag; they cannot explain an earlier unrecorded exception.
+
+## Bounded caption images (v3.0.3)
+
+A separate real-image connectivity check also disconnected before HTTP response
+headers with streaming enabled. Streaming alone therefore did not establish a fix.
+This profile additionally sends an in-memory JPEG derivative, fitting within512pixels
+per side without enlargement, quality85, and at most256KiB, to the existing low-detail
+caption call. It applies EXIF orientation, composites transparency on white, and
+strips metadata. Source images in the archive remain byte-for-byte unchanged.
+Animated or undecodable images are rejected; the local decode limit is24million pixels.
+
+This is a bounded transport hypothesis, not a claim of equivalent visual detail or
+better benchmark performance. Fine text and small objects may be lost in the view.
+The fixed models, native Mem0 prompts, and no-retry policy remain unchanged.
+See [OpenAI's image input and detail guidance](https://developers.openai.com/api/docs/guides/images-vision).

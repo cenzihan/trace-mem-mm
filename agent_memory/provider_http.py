@@ -34,6 +34,16 @@ class ProviderFailure(RuntimeError):
         super().__init__('provider '+category+((' HTTP '+str(status)) if status is not None else ''))
 
 
+def safe_failure_kind(exc):
+    """Classify transport exceptions without retaining messages or payload bytes."""
+    for kind in (http.client.RemoteDisconnected, ssl.SSLCertVerificationError, ssl.SSLError, TimeoutError,
+                 ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
+                 http.client.IncompleteRead,
+                 http.client.BadStatusLine, OSError):
+        if isinstance(exc,kind):return kind.__name__
+    return 'OtherTransportError'
+
+
 @dataclass(frozen=True)
 class HTTPReply:
     status:int
@@ -120,11 +130,12 @@ class NativeHTTPS:
                     if not chunk:break
                     chunks.append(chunk);size+=len(chunk)
                     if size>max_response_bytes:raise ProviderFailure('response_limit')
-                value=HTTPReply(response.status,b''.join(chunks),{'retry-after':response.getheader('Retry-After','')})
+                value=HTTPReply(response.status,b''.join(chunks),{'retry-after':response.getheader('Retry-After',''),
+                    'content-type':response.getheader('Content-Type','')})
             except ProviderFailure as exc:value=exc
-            except TimeoutError:value=ProviderFailure('timeout')
-            except ssl.SSLError:value=ProviderFailure('tls_error')
-            except Exception:value=ProviderFailure('network_error')
+            except Exception as exc:
+                category='timeout' if isinstance(exc,TimeoutError) else ('tls_error' if isinstance(exc,ssl.SSLError) else 'network_error')
+                value=ProviderFailure(category);value.transport_kind=safe_failure_kind(exc)
             finally:
                 try:
                     if conn:conn.close()
@@ -227,6 +238,10 @@ class BudgetedJSONTransport:
             raise ValueError('local card text/image input admission exceeded')
         return 128000,output
 
+    def decode_response(self,reply,payload):
+        try:return json.loads(reply.body.decode('utf-8'),parse_constant=lambda _:(_ for _ in ()).throw(ValueError()))
+        except (ValueError,UnicodeError):raise ProviderFailure('invalid_json') from None
+
     def _usage(self,data):
         usage=data.get('usage')
         if not isinstance(usage,dict):raise ProviderFailure('invalid_usage')
@@ -313,8 +328,7 @@ class BudgetedJSONTransport:
                               'redirect' if 300<=status<400 else 'client_error')
                     raise ProviderFailure(category)
                 if not isinstance(reply.body,bytes) or len(reply.body)>self.limit:raise ProviderFailure('response_limit')
-                try:data=json.loads(reply.body.decode('utf-8'),parse_constant=lambda _:(_ for _ in ()).throw(ValueError()))
-                except (ValueError,UnicodeError):raise ProviderFailure('invalid_json') from None
+                data=self.decode_response(reply,payload)
                 if not isinstance(data,dict):raise ProviderFailure('invalid_contract')
                 usage=self._usage(data)
                 returned=self._response_model(data);self._contract(data,payload)
