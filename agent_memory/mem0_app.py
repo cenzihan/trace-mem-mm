@@ -88,3 +88,13 @@ def create_options_app(environ=None):
     from .joint_selection import SelectionServiceTransport
     return create_app(env,_system_type=Mem0OptionsSystem,
                       _transport_type=SelectionServiceTransport,_stop_at_chat_done=True)
+
+
+def create_coverage_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_COVERAGE_ENABLED')!='approved-native-mem0-coverage':
+        raise ValueError('explicit candidate-image coverage activation required')
+    from .mem0_coverage import Mem0CoverageSystem
+    from .coverage_selection import CoverageServiceTransport
+    return create_app(env,_system_type=Mem0CoverageSystem,
+                      _transport_type=CoverageServiceTransport,_stop_at_chat_done=True)
