@@ -44,6 +44,9 @@ class Mem0RawSystem(Mem0EvidenceSystem):
         """Explicit candidate extension point; raw v4 ordering is unchanged."""
         return order
 
+    def _retrieval_text(self, payload, parts):
+        return text_of(parts)
+
     def _write_native(self, payload):
         descriptions = []
         for ordinal, message in enumerate(payload['messages']):
@@ -69,7 +72,7 @@ class Mem0RawSystem(Mem0EvidenceSystem):
 
     def search(self, payload):
         parts = validate_search(payload)
-        uid, query = payload['user_id'], text_of(parts)
+        uid, query = payload['user_id'], self._retrieval_text(payload, parts)
         with self.lock:
             self.ready()
             with self.connect() as db:

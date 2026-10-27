@@ -37,6 +37,9 @@ class Mem0JointSystem(Mem0RawSystem):
         query_admission(validate_search(payload))
         return super().search(payload)
 
+    def _select_sources(self, payload, parts, sources):
+        return self.selector.select(parts, sources)
+
     def _order_sources(self, payload, parts, rows, order, identities):
         uid = payload['user_id']
         with self.connect() as db:
@@ -56,7 +59,7 @@ class Mem0JointSystem(Mem0RawSystem):
                 if value is None:raise ValueError('candidate original disappeared')
                 sources.append(dict(content=json.loads(value[0]), created_at=value[1],
                                     session_group=groups[value[2]]))
-        selected = self.selector.select(parts, sources)
+        selected = self._select_sources(payload, parts, sources)
         # No unselected tail: [] is a valid evidence selection, never a failure fallback.
         # Exact image identities remain direct evidence independent of model selection.
         return list(dict.fromkeys([*sorted(identities), *(pool[i] for i in selected)]))
