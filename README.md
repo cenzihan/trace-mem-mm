@@ -1,18 +1,19 @@
 # TraceMem-MM
 
-Current fixed service: **tracemem-mm-bailian-v2.0.4**, release
-`790e2d73816eefd5ab8b5f11b4ee7056781026bd`, at
+Current fixed service: **tracemem-mm-mem0-joint-v4.2.0**, release
+`3876b5fb0500d69de9a1fc3616567aa62067e292`, at
 [/v2.1/health](https://45.192.104.173/v2.1/health) (same-version alias `/v2.2`).
-Its official compatibility Smoke completed successfully. This does not establish
+Its official compatibility Smoke completed successfully. It uses raw Mem0 storage,
+`text-embedding-v4`, and at most one `gpt-4o-mini` evidence-selection call per Search.
+See the [joint selector](docs/mem0-joint-selection.md). This does not establish
 strong retrieval quality or a Full/public leaderboard result. The old `/v2`
 route is retired. Evaluation credentials and private task receipts are not in
 this repository.
 
-The separate [evidence-context candidate](docs/evidence-context-candidate.md),
-`tracemem-mm-context-v2.1.0-rc1`, has an explicitly activated service factory
-prepared for an authorized official Smoke. It keeps the original accounting and
-model limits. No improved benchmark score is established yet; the v2.0.4 image
-and tag remain the previous integration baseline.
+The separate [choice-context candidate](docs/mem0-options-context.md),
+`tracemem-mm-mem0-options-v4.3.0`, additionally consumes the API's optional choice
+context. It is not yet deployed or officially scored. Original accounting, model
+identity, failed/unknown receipts, source tags and service history are preserved.
 
 ## Historical engineering milestones
 

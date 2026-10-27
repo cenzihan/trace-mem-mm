@@ -78,3 +78,13 @@ def create_joint_app(environ=None):
     from .joint_selection import SelectionServiceTransport
     return create_app(env,_system_type=Mem0JointSystem,
                       _transport_type=SelectionServiceTransport,_stop_at_chat_done=True)
+
+
+def create_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_OPTIONS_ENABLED')!='approved-native-mem0-options':
+        raise ValueError('explicit choice-context candidate activation required')
+    from .mem0_options import Mem0OptionsSystem
+    from .joint_selection import SelectionServiceTransport
+    return create_app(env,_system_type=Mem0OptionsSystem,
+                      _transport_type=SelectionServiceTransport,_stop_at_chat_done=True)
