@@ -42,10 +42,17 @@ class ServingSystem(OnlineDenseRerankSystem):
 
 
 class ServiceApplication(Application):
-    def __init__(self, store, transport, key, *, scorer_health=None, expires_at=None):
+    def __init__(self, store, transport, key, *, scorer_health=None, expires_at=None,
+                 admission_capacity=1, queue_wait_seconds=0):
+        if type(admission_capacity) is not int or not 1 <= admission_capacity <= 16:
+            raise ValueError('admission capacity must be 1..16')
+        if not isinstance(queue_wait_seconds, (int, float)) or not 0 <= queue_wait_seconds <= 30:
+            raise ValueError('queue wait must be 0..30 seconds')
         super().__init__(store, auth_mode='Bearer', key=key)
         self.transport = transport
         self.active = threading.Lock()
+        self.admissions = threading.BoundedSemaphore(admission_capacity)
+        self.queue_wait_seconds = queue_wait_seconds
         self.scorer_health = scorer_health or self.check_scorer
         self.expires_at = expires_at
 
@@ -72,13 +79,20 @@ class ServiceApplication(Application):
             try:self.transport.ready();self.scorer_health()
             except Exception:return self.reply(start_response,'503 Service Unavailable','readiness check failed')
         if path in ('/add','/search') and self.authorized(environ):
-            if not self.active.acquire(blocking=False):
-                return self.reply(start_response,'429 Too Many Requests','one active request supported',[('Retry-After','5')])
+            if not self.admissions.acquire(blocking=False):
+                return self.reply(start_response,'429 Too Many Requests','request admission capacity reached',[('Retry-After','5')])
             try:
-                try:self.transport.ready()
-                except Exception:return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
-                return super().__call__(environ,start_response)
-            finally:self.active.release()
+                if not self.active.acquire(timeout=self.queue_wait_seconds):
+                    return self.reply(start_response,'429 Too Many Requests','request queue wait exceeded',[('Retry-After','5')])
+                try:
+                    # Waiting must never extend the original deployment lease.
+                    if self.expires_at is not None and time.time() >= self.expires_at:
+                        return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
+                    try:self.transport.ready()
+                    except Exception:return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
+                    return super().__call__(environ,start_response)
+                finally:self.active.release()
+            finally:self.admissions.release()
         return super().__call__(environ,start_response)
 
 

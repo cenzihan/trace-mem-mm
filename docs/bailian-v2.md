@@ -1,5 +1,25 @@
 # Hosted reranker candidate
 
+Current patch release: `tracemem-mm-bailian-v2.0.1`. Official external-track
+settings require Add concurrency16–64 and Search concurrency16–256. Set both
+to16. The service admits up to16 requests, serializes model/index work to
+preserve receipt-first accounting, and waits at most30 seconds for the active
+request. Full admission or queue expiry returns429 with Retry-After5 before
+reading the body or starting model calls. Eighteen HTTP threads leave room for
+health checks. This is bounded queuing, not16 simultaneous model calls or a
+throughput guarantee. The deployment lease is checked again after queueing.
+The [official guide](https://agentmemoryleaderboard.ai/docs) documents bounded
+retry handling for429 and states that concurrency is an upper bound.
+
+Patch endpoints are `/v2.1/add`, `/v2.1/search` and `/v2.1/health`. The unused
+v2.0.0 binding is superseded and its `/v2` routes are retired. The patch retains
+the existing hosted state, receipt journals, original shared money ledger,
+immutable512-call ceiling and deletion deadline. No counters or model identity
+are reset. The earlier v1 remains separate. Six focused offline tests cover
+16 simultaneous admissions, health/auth isolation, capacity overflow, queue
+timeout, failure recovery and expiry while waiting. The real-data retrieval
+results below describe the unchanged retrieval implementation in v2.0.0.
+
 The user approved a separate hosted reranker version on2026-10-27 after recurring
 private GPU tunnel interruptions. `tracemem-mm-bailian-v2.0.0` uses Bailian's
 `qwen3-vl-rerank`; this is a different model identity from the submitted v1's
@@ -59,14 +79,15 @@ saved evidence, with no model replay. All79 receipts are complete and minimized.
 
 ## Deployed native-data smoke
 
-The distinct [v2 health endpoint](https://45.192.104.173/v2/health) is deployed.
-Authenticated endpoints are `/v2/add` and `/v2/search`; the old routes still serve
-the submitted v1. A fresh real Mem-Gallery image-containing Add and two Searches
+The hosted [patch health endpoint](https://45.192.104.173/v2.1/health) uses the
+existing hosted state. The original flat routes still serve the submitted v1.
+Before the admission patch, a fresh real Mem-Gallery image-containing Add and two Searches
 (one after container restart) passed. The run made2 real GPT calls,3 embedding
 calls and2 hosted rerank calls. Original image/text hashes, persistence, ranked
 source identities, idempotence, conflict rejection, authorization and user isolation
 passed. This is development smoke, not official AML Smoke or admission approval.
 
-Version binding still requires the issued AML Eval Key. Bind these distinct
-endpoints to that key; do not resubmit the application or silently change v1.
+The original application is approved and its Eval Key is configured privately.
+Bind patch endpoints as a distinct version; do not resubmit the application or
+silently change v1. Official Smoke is separate from the development checks above.
 The new service lease and content-deletion deadline retain the original bounds.

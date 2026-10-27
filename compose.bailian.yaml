@@ -2,11 +2,11 @@
 services:
   api:
     build: ./source
-    image: trace-mem-mm:bailian-v2.0.0
+    image: trace-mem-mm:bailian-v2.0.1
     init: true
     restart: unless-stopped
     network_mode: host
-    command: [gunicorn, --config, /app/deploy/gunicorn.conf.py, --bind, '127.0.0.1:8769', --threads, '2', --max-requests, '0', 'agent_memory.bailian_app:create_app()']
+    command: [gunicorn, --config, /app/deploy/gunicorn.conf.py, --bind, '127.0.0.1:8769', --threads, '18', --max-requests, '0', 'agent_memory.bailian_app:create_app()']
     environment:
       TRACEMEM_HOSTED_RERANK_ENABLED: approved-versioned-bailian-v2
       TRACEMEM_SERVICE_STATE: /app/runtime/bailian-v2-service
