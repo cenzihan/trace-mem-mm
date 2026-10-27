@@ -50,3 +50,36 @@ retained, and no historical detail is inferred from the boolean failure. This
 candidate stays a draft: no deployment or official evaluation is authorized by
 these failed controls. Further work needs prospective independent-control rank
 diagnostics and evidence of improvement, not repeated official submissions.
+
+## Independent-control diagnostics
+
+`scripts/independent_control_probe.py` adds prospective diagnostics for a new,
+preplanned independent control in an isolated local pilot. It is not imported by
+service factories and must never be attached to official traffic or a store with
+official data. Its provenance argument is a declaration, not a license or overlap
+audit; that audit and a separate finite call plan are still required before any
+real input is used. Closed or uncertain inputs must not be replayed for diagnostics.
+
+The caller fixes the complete target content before running the control, wraps
+the existing selector once, then observes the actual packed original results.
+Output includes only candidate counts, one-based target ranks, image counts and
+fixed stage/outcome labels. It distinguishes a target absent from the candidate
+pool, omitted by an initial batch, excluded from the final comparison, selected
+but absent/reordered in the returned results, and a failed model call. Absence
+from final results alone does not identify whether identity ordering, neighbor
+expansion or media packing caused it. Duplicate target matches are disclosed.
+
+The transport wrapper dispatches exactly once through the original transport and
+delegates all admission/ledger checks. It neither reserves extra calls nor
+changes the algorithm, prompt, response validation or return order. Failures still
+raise the original error without partial results. Mapping/diagnostic failures
+invalidate stage observations rather than inventing ranks. The bounded private
+JSON output has no source IDs, query, options, images, raw provider responses or
+exception messages, and cannot overwrite an earlier record. Failure to write it
+does not turn a failed selection into success or change a successful selection.
+
+Sixteen synthetic offline controls exercise stage separation, omission, output
+minimization, unchanged payloads and call counts, original budget denial, invalid
+responses and write failure. This diagnostic helper has not been used for a new
+live preflight, and cannot recover the missing historical R13/R14 ranks or make
+either failed candidate ready for deployment.
