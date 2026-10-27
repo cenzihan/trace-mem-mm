@@ -308,7 +308,8 @@ class ServiceTransport:
                     kind=getattr(receipt_http,'failure_kind',None)
                     allowed_kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
                         'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
-                        'BadStatusLine','OSError','OtherTransportError'}
+                        'BadStatusLine','OSError','OtherTransportError','HTTPXTimeout',
+                        'HTTPXRemoteProtocolError','HTTPXConnectError','HTTPXReadError','HTTPXWriteError'}
                     with (self.quarantine_path.parent/'transport-failure-phases.jsonl').open('a') as f:
                         diagnostic={}
                         raw=getattr(receipt_http,'failure_diagnostics',None)
@@ -316,7 +317,7 @@ class ServiceTransport:
                             for key in ('received_bytes','response_status'):
                                 val=raw.get(key)
                                 if type(val) is int and 0<=val<=8*1024*1024:diagnostic[key]=val
-                            for key in ('sse_done_frame','sse_complete'):
+                            for key in ('sse_done_frame','sse_complete','http2'):
                                 if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
                         f.write(_json({'fingerprint':fingerprint,'phase':phase,
                             'transport_kind':kind if kind in allowed_kinds else None,

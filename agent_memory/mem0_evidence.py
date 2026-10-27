@@ -6,7 +6,7 @@ from .mem0_bridge import Mem0System
 from .protocol import ContractError, MEDIA_LIMIT, content_parts, image_hashes, media_size, validate_search
 from .retrieval import bm25, ranked
 
-VERSION = 'tracemem-mm-mem0-evidence-v3.1.1'
+VERSION = 'tracemem-mm-mem0-evidence-v3.1.2'
 
 
 def pack_mixed(originals, facts, top_k, *, limit=MEDIA_LIMIT):
@@ -28,6 +28,12 @@ def pack_mixed(originals, facts, top_k, *, limit=MEDIA_LIMIT):
 
 class Mem0EvidenceSystem(Mem0System):
     context_anchor_limit = 12
+
+    def close(self):
+        try:super().close()
+        finally:
+            close=getattr(getattr(self.transport,'http',None),'close',None)
+            if close:close()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

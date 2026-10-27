@@ -123,13 +123,14 @@ class StreamCompletionTests(unittest.TestCase):
         from agent_memory.mem0_app import create_evidence_app
         from agent_memory.mem0_transport import Mem0EvidenceTransport,Mem0ServiceTransport
         from agent_memory.mem0_evidence import Mem0EvidenceSystem
+        from agent_memory.http2_transport import HTTP2AcademicHTTPS
         with patch('agent_memory.mem0_app.create_app') as factory:
             env={'TRACEMEM_MEM0_EVIDENCE_ENABLED':'approved-native-mem0-evidence'}
             create_evidence_app(env)
         factory.assert_called_once_with(env,_system_type=Mem0EvidenceSystem,
-            _transport_type=Mem0EvidenceTransport,_stop_at_chat_done=True)
+            _transport_type=Mem0EvidenceTransport,_http_type=HTTP2AcademicHTTPS)
         self.assertEqual(Mem0ServiceTransport.receipt_scope,'native-mem0-v3.0.3')
-        self.assertEqual(Mem0EvidenceTransport.receipt_scope,'native-mem0-v3.1.1')
+        self.assertEqual(Mem0EvidenceTransport.receipt_scope,'native-mem0-v3.1.2')
 
     def test_unknown_diagnostics_remain_scalar_and_old_call_cannot_replay(self):
         fixture=fixtures.ServiceTransportTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
