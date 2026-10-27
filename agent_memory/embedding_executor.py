@@ -155,7 +155,10 @@ class _ReceiptHTTP:
         row = self.journal.row(self.fingerprint)
         if row['state'] != 'inflight' or not row['attempt_id']:
             raise EmbeddingExecutorBlocked('budget attempt must be bound before network dispatch')
-        reply = self.inner.exchange(endpoint, body, headers, timeout, max_response_bytes)
+        try:reply = self.inner.exchange(endpoint, body, headers, timeout, max_response_bytes)
+        except BaseException as exc:
+            self.failure_phase=getattr(exc,'phase',None)
+            raise
         self.journal.received(self.fingerprint, reply, headers)
         if self.after_received is not None:
             self.after_received()

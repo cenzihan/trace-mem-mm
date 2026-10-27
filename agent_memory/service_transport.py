@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
 import json
+import os
 from pathlib import Path
 import threading
 import uuid
@@ -97,6 +98,7 @@ class ServiceTransport:
     mode = 'live'
     transport_type = ServiceBudgetedTransport
     output_token_cap = 512
+    receipt_scope = 'official-service-v1'
 
     def normalize_result(self, value, model):
         return omit_nontext_quote_metadata(value) if model=='gpt-4o-mini' else value
@@ -129,6 +131,7 @@ class ServiceTransport:
                     raise ValueError('original budget history changed')
         self.authority_sha = hashlib.sha256(self.authority_path.read_bytes()).hexdigest()
         self.journal = _ServiceJournal(journal_root, offline_test)
+        self.quarantine_path = Path(journal_root)/'operator-quarantines.jsonl'
         with self.journal.connect() as db:
             columns = {row[1] for row in db.execute('PRAGMA table_info(operations)')}
             if 'receipt_policy' not in columns:
@@ -141,6 +144,33 @@ class ServiceTransport:
                 fingerprint TEXT PRIMARY KEY, retired_at TEXT NOT NULL)''')
         self.readers = readers
         self.lock = threading.Lock()
+
+    def quarantines(self):
+        """Explicit operator abandonments; never a success or permission to replay."""
+        if not self.quarantine_path.exists():return {}
+        proofs={}
+        for line in self.quarantine_path.read_text().splitlines():
+            proof=json.loads(line);fingerprint=proof['fingerprint']
+            if fingerprint in proofs:raise ValueError('duplicate quarantine proof')
+            row=self.journal.row(fingerprint)
+            if (not row or row['state']!='unknown' or row['status'] is not None or row['body'] is not None
+                    or row['body_sha'] is not None or row['transport_completed']
+                    or row['attempt_id']!=proof['attempt_id'] or row['scope']!=proof['scope']
+                    or hashlib.sha256(_json(row).encode()).hexdigest()!=proof['row_sha256']
+                    or not proof.get('reason') or len(proof.get('blocked_user_sha256',''))!=64):
+                raise ValueError('unknown operation changed; quarantine invalid')
+            with self.ledger.connect() as db:
+                amount=db.execute('SELECT accounted,reserved FROM attempts WHERE id=?',(row['attempt_id'],)).fetchone()
+                observed=db.execute('SELECT category,http_status FROM provider_observations WHERE attempt_id=?',(row['attempt_id'],)).fetchone()
+            if not amount or amount[0]<amount[1] or observed not in [('tls_error',None),('timeout',None),('network_error',None)]:
+                raise ValueError('unknown call must retain its full money hold and failure')
+            proofs[fingerprint]=proof
+        return proofs
+
+    def assert_source_allowed(self,payload):
+        user_sha=hashlib.sha256(payload['user_id'].encode()).hexdigest()
+        if any(p['blocked_user_sha256']==user_sha for p in self.quarantines().values()):
+            raise ValueError('retired uncertain input scope cannot be replayed')
 
     def prices(self):
         value = json.loads(self.prices_path.read_text())
@@ -161,11 +191,14 @@ class ServiceTransport:
         if hashlib.sha256(self.authority_path.read_bytes()).hexdigest() != self.authority_sha:
             raise ValueError('budget ownership changed')
         self.prices()
+        quarantines=self.quarantines()
         with self.journal.connect() as db:
             rows = [dict(row) for row in db.execute('SELECT * FROM operations')]
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
             retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
         for row in rows:
+            proof_unknown=quarantines.get(row['fingerprint'])
+            if proof_unknown and self.receipt_scope!=proof_unknown['scope']:continue
             proof = discarded.get(row['fingerprint'])
             if acknowledged_failure(row,proof):continue
             if row['state']=='abandoned_before_dispatch' and row['fingerprint'] in retired and never_dispatched(row):continue
@@ -244,7 +277,12 @@ class ServiceTransport:
             config = self.prices()
             rate = VerifiedRate(model=model, checked_at=config['checked_at'], **config['models'][model])
             fingerprint = uuid.uuid4().hex
-            manifest = {'keys':[fingerprint], 'model':model}
+            payload_sha=hashlib.sha256(_json(payload).encode()).hexdigest()
+            for proof in self.quarantines().values():
+                original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
+                if original.get('payload_sha256')==payload_sha:
+                    raise ValueError('retired unknown model request cannot be replayed')
+            manifest = {'keys':[fingerprint], 'model':model,'payload_sha256':payload_sha}
             receipt_http = _ReceiptHTTP(self.http, self.journal, fingerprint, payload, None)
             receipt_http.endpoint = endpoint
             transport = self.transport_type(model=model, endpoint=endpoint, ledger=self.ledger,
@@ -257,13 +295,18 @@ class ServiceTransport:
             transport._bounds(payload)
             if model == 'text-embedding-v4' and payload.get('dimensions') != 256:
                 raise ValueError('fixed 256-dimensional vectors required')
-            self.journal.install(fingerprint, 'official-service-v1', manifest)
+            self.journal.install(fingerprint, self.receipt_scope, manifest)
             self.journal.start(fingerprint)
             try:
                 value = transport(endpoint, payload)
             except BaseException:
                 with self.journal.connect() as db:
                     db.execute("UPDATE operations SET state=CASE WHEN state='received' THEN 'failed' ELSE 'unknown' END WHERE fingerprint=?", (fingerprint,))
+                phase=getattr(receipt_http,'failure_phase',None)
+                if phase in ('tls_setup','post_started','response_headers','response_body','deadline_unknown'):
+                    with (self.quarantine_path.parent/'transport-failure-phases.jsonl').open('a') as f:
+                        f.write(_json({'fingerprint':fingerprint,'phase':phase,'at':datetime.now(timezone.utc).isoformat()})+'\n')
+                        f.flush();os.fsync(f.fileno())
                 raise
             with self.journal.connect() as db:
                 row = db.execute('SELECT * FROM operations WHERE fingerprint=?', (fingerprint,)).fetchone()

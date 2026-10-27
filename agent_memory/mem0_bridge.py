@@ -19,7 +19,7 @@ from .protocol import ContractError,canonical,content_parts,text_of,validate_add
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 
-VERSION='tracemem-mm-mem0-v3.0.0'
+VERSION='tracemem-mm-mem0-v3.0.1'
 MEM0_VERSION='2.2.1'
 _adapters=ContextVar('mem0_budget_adapters')
 _factory_lock=threading.Lock()
@@ -148,6 +148,10 @@ class Mem0System(MemoryStore):
 
     def add(self,payload):
         validate_add(payload)
+        check=getattr(self.transport,'assert_source_allowed',None)
+        if check:
+            try:check(payload)
+            except ValueError:raise ContractError('retired or invalid source scope',503) from None
         uid,req=payload['user_id'],payload['request_id']
         digest=hashlib.sha256(canonical(payload).encode()).hexdigest();owner=uuid.uuid4().hex
         with self.lock:

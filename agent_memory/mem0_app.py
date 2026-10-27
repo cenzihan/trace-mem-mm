@@ -9,7 +9,7 @@ from .embedding_smoke_app import read_embedding_token
 from .mem0_bridge import Mem0System
 from .mem0_transport import Mem0ServiceTransport
 from .online_cards import VerifiedQuoteCards
-from .provider_http import SHARED_LEDGER,BAILIAN_BEIJING_ENDPOINT
+from .provider_http import SHARED_LEDGER,BAILIAN_BEIJING_ENDPOINT,NativeHTTPS
 from .providers import TextEmbeddingV4
 from .service_app import ServiceApplication
 
@@ -25,7 +25,7 @@ def create_app(environ=None):
     # Reuse the original MM journal, including all prior failure acknowledgements.
     journal=RUNTIME/'bailian-v2-service'/'provider-receipts'
     base=Mem0ServiceTransport(SHARED_LEDGER,env['TRACEMEM_LEDGER_AUTHORITY_FILE'],
-        env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers)
+        env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers,http=NativeHTTPS(handshake_attempts=3))
     expires=int(env['TRACEMEM_SERVICE_EXPIRES_AT'])
     if not time.time()<expires<=1793896200:raise ValueError('original lease must not be extended')
     store=Mem0System(state/'memory.sqlite',transport=base,
