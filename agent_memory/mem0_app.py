@@ -14,7 +14,7 @@ from .providers import TextEmbeddingV4
 from .service_app import ServiceApplication
 
 
-def create_app(environ=None):
+def create_app(environ=None, *, _system_type=Mem0System):
     env=os.environ if environ is None else environ
     if env.get('TRACEMEM_MEM0_ENABLED')!='approved-native-mem0-night':raise ValueError('explicit native activation required')
     state=Path(env['TRACEMEM_SERVICE_STATE']).resolve()
@@ -28,8 +28,16 @@ def create_app(environ=None):
         env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers,http=NativeHTTPS(handshake_attempts=3))
     expires=int(env['TRACEMEM_SERVICE_EXPIRES_AT'])
     if not time.time()<expires<=1793896200:raise ValueError('original lease must not be extended')
-    store=Mem0System(state/'memory.sqlite',transport=base,
+    store=_system_type(state/'memory.sqlite',transport=base,
         embedding=TextEmbeddingV4(BAILIAN_BEIJING_ENDPOINT,base,dimensions=256),
         card_adapter=VerifiedQuoteCards(base,image_detail='low',structured_output=True))
     return ServiceApplication(store,store,read_service_token(env['TRACEMEM_AUTH_TOKEN_FILE']),
         scorer_health=lambda:None,expires_at=expires,admission_capacity=16,queue_wait_seconds=30)
+
+
+def create_evidence_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_EVIDENCE_ENABLED')!='approved-native-mem0-evidence':
+        raise ValueError('explicit evidence candidate activation required')
+    from .mem0_evidence import Mem0EvidenceSystem
+    return create_app(env,_system_type=Mem0EvidenceSystem)

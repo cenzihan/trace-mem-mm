@@ -3,7 +3,10 @@
 This opt-in profile runs the real `mem0ai==2.2.1` package. Its wheel SHA256 is
 `fe91bb91ac8926231993a4aa58df00a60c6c74c709e6a338fe399500776eef4d`.
 The Linux CPython3.11 dependency lock includes wheel hashes. This is a distinct
-experimental profile, now `tracemem-mm-mem0-v3.0.3`, with no claimed evaluation result.
+experimental profile, now `tracemem-mm-mem0-v3.0.3`. Its private compatibility
+Smoke completed; that does not establish strong quality or a Full/public result.
+The separate [source-evidence candidate](mem0-source-evidence.md) adds original
+messages to retrieval and has no official score yet.
 Mem0 is Apache-2.0 licensed; its license remains in the installed distribution.
 
 Mem0 performs native additive extraction, deduplication, entity linking and hybrid
