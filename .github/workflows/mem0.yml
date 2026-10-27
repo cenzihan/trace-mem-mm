@@ -1,0 +1,26 @@
+name: Native Mem0 container validation
+on:
+  push:
+    branches: [main, codex/mem0-night-baseline]
+    paths: ['agent_memory/**', 'tests/**', 'Dockerfile.mem0', 'requirements*.txt', '.github/workflows/mem0.yml', '.dockerignore']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with: {persist-credentials: false}
+      - name: Build pinned native dependency image
+        run: docker build -f Dockerfile.mem0 -t tracemem-native:test .
+      - name: Real SDK with synthetic models and no network
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/fixtures,dst=/app/fixtures,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/compose.yaml,dst=/app/compose.yaml,readonly" \
+            tracemem-native:test python -B -m unittest discover -s tests -v

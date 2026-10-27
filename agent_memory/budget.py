@@ -67,6 +67,41 @@ class VerifiedRate:
 
 
 class BudgetLedger:
+    @staticmethod
+    def effective_cap(db):
+        """Honor additive consent events; keep the original ceiling/history intact.
+
+        Frozen older services continue to enforce the smaller original ceiling.
+        Every writer still counts ALL attempts in this same database.
+        """
+        cap = db.execute('SELECT cap FROM budget WHERE id=1').fetchone()[0]
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='budget_consents'").fetchone():
+            for old,new,authority in db.execute('SELECT prior_cap,new_cap,authority FROM budget_consents ORDER BY sequence'):
+                if old != cap or not cap < new <= 800000000 or not authority.strip():
+                    raise ValueError('invalid cumulative budget consent chain')
+                cap = new
+        return cap
+
+    def authorize_increase(self, cap_cny, consent_id, authority):
+        """Operator-only explicit human consent, not reachable from HTTP routes."""
+        requested = micro_cny(cap_cny)
+        if not consent_id or not authority or requested > 800000000:
+            raise ValueError('bounded explicit consent required')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute('''CREATE TABLE IF NOT EXISTS budget_consents (
+                sequence INTEGER PRIMARY KEY, consent_id TEXT UNIQUE NOT NULL,
+                prior_cap INTEGER NOT NULL, new_cap INTEGER NOT NULL,
+                authority TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            old = db.execute('SELECT new_cap,authority FROM budget_consents WHERE consent_id=?',(consent_id,)).fetchone()
+            if old:
+                if old != (requested,authority):raise ValueError('conflicting consent reuse')
+                return
+            previous = self.effective_cap(db)
+            if requested <= previous:raise ValueError('increase required; never reset spending')
+            db.execute('INSERT INTO budget_consents(consent_id,prior_cap,new_cap,authority,recorded_at) VALUES(?,?,?,?,?)',
+                (consent_id,previous,requested,authority,datetime.now(timezone.utc).isoformat()))
+
     def __init__(self, path, cap_cny="500"):
         cap = micro_cny(cap_cny)
         if cap > CONSENT_CAP_MICRO_CNY or cap <= 0:
@@ -136,7 +171,7 @@ class BudgetLedger:
                 raise ValueError("retry must reference an existing attempt")
             if db.execute("SELECT 1 FROM attempts WHERE status='needs_reconciliation'").fetchone():
                 raise ValueError("unreconciled usage anomaly blocks all further attempts")
-            cap = db.execute("SELECT cap FROM budget WHERE id=1").fetchone()[0]
+            cap = self.effective_cap(db)
             used = db.execute("SELECT coalesce(sum(accounted),0) FROM attempts").fetchone()[0]
             if used + amount > cap:
                 raise ValueError("hard budget exceeded; do not dispatch")
@@ -198,7 +233,7 @@ class BudgetLedger:
 
     def totals(self):
         with self.connect() as db:
-            cap = db.execute("SELECT cap FROM budget WHERE id=1").fetchone()[0]
+            cap = self.effective_cap(db)
             used = db.execute("SELECT coalesce(sum(accounted),0) FROM attempts").fetchone()[0]
             attempts = db.execute("SELECT count(*) FROM attempts").fetchone()[0]
         return {"cap_micro_cny": cap, "accounted_micro_cny": used,

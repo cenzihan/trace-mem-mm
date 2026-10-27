@@ -95,6 +95,11 @@ class _ServiceJournal(_Journal):
 
 class ServiceTransport:
     mode = 'live'
+    transport_type = ServiceBudgetedTransport
+    output_token_cap = 512
+
+    def normalize_result(self, value, model):
+        return omit_nontext_quote_metadata(value) if model=='gpt-4o-mini' else value
 
     def __init__(self, ledger_path, authority_path, prices_path, journal_root, readers,
                  *, http=None, offline_test=False):
@@ -242,13 +247,13 @@ class ServiceTransport:
             manifest = {'keys':[fingerprint], 'model':model}
             receipt_http = _ReceiptHTTP(self.http, self.journal, fingerprint, payload, None)
             receipt_http.endpoint = endpoint
-            transport = ServiceBudgetedTransport(model=model, endpoint=endpoint, ledger=self.ledger,
+            transport = self.transport_type(model=model, endpoint=endpoint, ledger=self.ledger,
                 rate=rate, credential_reader=self.readers.get(model), http=receipt_http,
                 mode=self.mode, enabled=True, prices_confirmed=True, timeout_seconds=120,
                 fixed_reserve_cny='.25' if model == 'gpt-4o-mini' else None,
                 usd_rates=('.15','.60') if model == 'gpt-4o-mini' else None,
                 attempt_observer=lambda attempt:self.journal.attach(fingerprint, attempt),
-                output_token_cap=512)
+                output_token_cap=self.output_token_cap)
             transport._bounds(payload)
             if model == 'text-embedding-v4' and payload.get('dimensions') != 256:
                 raise ValueError('fixed 256-dimensional vectors required')
@@ -269,4 +274,4 @@ class ServiceTransport:
                 # The model response is returned to the memory pipeline in RAM only.
                 # Keep no query vectors, source-card response copies, or raw content logs.
                 db.execute("UPDATE operations SET state='complete',body=NULL,redacted=1,transport_completed=1,receipt_policy='usage_only' WHERE fingerprint=?", (fingerprint,))
-            return omit_nontext_quote_metadata(value) if model=='gpt-4o-mini' else value
+            return self.normalize_result(value, model)
