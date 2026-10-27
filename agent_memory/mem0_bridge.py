@@ -148,6 +148,9 @@ class Mem0System(MemoryStore):
         if captions:text+='\nDerived image descriptions (may be uncertain):\n'+'\n'.join(captions)
         return text.strip()
 
+    def _persist_descriptions(self,db,payload,descriptions):
+        """Optional source index, committed with originals; never receives queries."""
+
     def add(self,payload):
         validate_add(payload)
         check=getattr(self.transport,'assert_source_allowed',None)
@@ -168,10 +171,11 @@ class Mem0System(MemoryStore):
                     raise ContractError('user has unresolved Add',503)
                 db.execute('INSERT INTO add_operations VALUES(?,?,?,?,?)',(uid,req,digest,'preparing',owner))
             try:
-                messages=[]
+                messages=[];descriptions=[]
                 for msg in payload['messages']:
                     text=self._describe(content_parts(msg['content']))
                     if 'timestamp' in msg:text='Source timestamp (Unix milliseconds): '+str(msg['timestamp'])+'\n'+text
+                    descriptions.append(text)
                     # Split losslessly, retaining role and ordering. No hidden truncation.
                     messages.extend(dict(role=msg['role'],content=t) for t in utf8_chunks(text,2000))
                 batch=[];size=0
@@ -184,6 +188,7 @@ class Mem0System(MemoryStore):
                 with self.connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     response=self._persist_add(db,payload,operation_token=owner)
+                    self._persist_descriptions(db,payload,descriptions)
                     db.execute("UPDATE add_operations SET state='complete' WHERE user_id=? AND request_id=? AND owner_token=?",(uid,req,owner))
                 return response
             except BaseException:
@@ -194,17 +199,21 @@ class Mem0System(MemoryStore):
     def search(self,payload):
         parts=validate_search(payload)
         with self.lock:
-            with self.connect() as db:
-                if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'",(payload['user_id'],)).fetchone():
-                    raise ContractError('user has unresolved Add',503)
-                if not db.execute('SELECT 1 FROM memories WHERE user_id=?',(payload['user_id'],)).fetchone():return {'data':[]}
-            query=self._describe(parts)
-            result=self.native.search(query,filters={'user_id':native_scope(payload['user_id'])},top_k=min(payload['top_k'],100))
-            self.ready()
-            rows=[]
-            for row in result['results']:
-                score=row.get('score',0)
-                if type(score) not in (float,int) or not math.isfinite(score):raise ValueError('invalid native score')
-                rows.append(dict(id='mem0_'+row['id'],content='Derived memory fact: '+row['memory'],
-                    score=float(score),created_at=row['created_at']))
+            _,rows=self._native_results(payload,parts)
             return {'data':rows}
+
+    def _native_results(self,payload,parts):
+        with self.connect() as db:
+            if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'",(payload['user_id'],)).fetchone():
+                raise ContractError('user has unresolved Add',503)
+            if not db.execute('SELECT 1 FROM memories WHERE user_id=?',(payload['user_id'],)).fetchone():return '',[]
+        query=self._describe(parts)
+        result=self.native.search(query,filters={'user_id':native_scope(payload['user_id'])},top_k=min(payload['top_k'],100))
+        self.ready()
+        rows=[]
+        for row in result['results']:
+            score=row.get('score',0)
+            if type(score) not in (float,int) or not math.isfinite(score):raise ValueError('invalid native score')
+            rows.append(dict(id='mem0_'+row['id'],content='Derived memory fact: '+row['memory'],
+                score=float(score),created_at=row['created_at']))
+        return query,rows
