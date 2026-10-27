@@ -151,6 +151,23 @@ class Mem0System(MemoryStore):
     def _persist_descriptions(self,db,payload,descriptions):
         """Optional source index, committed with originals; never receives queries."""
 
+    def _write_native(self,payload):
+        messages=[];descriptions=[]
+        for msg in payload['messages']:
+            text=self._describe(content_parts(msg['content']))
+            if 'timestamp' in msg:text='Source timestamp (Unix milliseconds): '+str(msg['timestamp'])+'\n'+text
+            descriptions.append(text)
+            # Split losslessly, retaining role and ordering. No hidden truncation.
+            messages.extend(dict(role=msg['role'],content=t) for t in utf8_chunks(text,2000))
+        batch=[];size=0
+        for message in messages:
+            width=len(message['content'].encode())
+            if batch and (size+width>4000 or len(batch)>=10):
+                self.native.add(batch,user_id=native_scope(payload['user_id']),infer=True);self.ready();batch=[];size=0
+            batch.append(message);size+=width
+        if batch:self.native.add(batch,user_id=native_scope(payload['user_id']),infer=True);self.ready()
+        return descriptions
+
     def add(self,payload):
         validate_add(payload)
         check=getattr(self.transport,'assert_source_allowed',None)
@@ -171,20 +188,7 @@ class Mem0System(MemoryStore):
                     raise ContractError('user has unresolved Add',503)
                 db.execute('INSERT INTO add_operations VALUES(?,?,?,?,?)',(uid,req,digest,'preparing',owner))
             try:
-                messages=[];descriptions=[]
-                for msg in payload['messages']:
-                    text=self._describe(content_parts(msg['content']))
-                    if 'timestamp' in msg:text='Source timestamp (Unix milliseconds): '+str(msg['timestamp'])+'\n'+text
-                    descriptions.append(text)
-                    # Split losslessly, retaining role and ordering. No hidden truncation.
-                    messages.extend(dict(role=msg['role'],content=t) for t in utf8_chunks(text,2000))
-                batch=[];size=0
-                for message in messages:
-                    width=len(message['content'].encode())
-                    if batch and (size+width>4000 or len(batch)>=10):
-                        self.native.add(batch,user_id=native_scope(uid),infer=True);self.ready();batch=[];size=0
-                    batch.append(message);size+=width
-                if batch:self.native.add(batch,user_id=native_scope(uid),infer=True);self.ready()
+                descriptions=self._write_native(payload)
                 with self.connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     response=self._persist_add(db,payload,operation_token=owner)
