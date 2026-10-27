@@ -19,7 +19,7 @@ from .protocol import ContractError,canonical,content_parts,text_of,validate_add
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 
-VERSION='tracemem-mm-mem0-v3.0.1'
+VERSION='tracemem-mm-mem0-v3.0.2'
 MEM0_VERSION='2.2.1'
 _adapters=ContextVar('mem0_budget_adapters')
 _factory_lock=threading.Lock()

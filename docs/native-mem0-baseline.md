@@ -60,3 +60,18 @@ wheel hash; the cache must contain no application data or credentials.
 
 Upstream: [Mem0 source](https://github.com/mem0ai/mem0) and
 [OSS documentation](https://docs.mem0.ai/open-source/overview).
+# Streaming transport candidate (v3.0.2)
+
+The native memory algorithm and fixed academic models are unchanged. Chat Completions
+requests use streaming with `include_usage` so the connection can deliver events while
+the completion is generated. This is a reliability hypothesis after a connection
+failed while awaiting response headers, not a proven diagnosis or score improvement.
+See the [OpenAI streaming contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create).
+
+The full wire response is durably received before parsing. A valid stream must finish
+with `[DONE]`, one stopped choice, consistent completion/model identities, and final
+usage. Partial output, refusals, tool calls, model substitutions and missing usage
+cannot become stored memory. Successful wire bodies are minimized using the existing
+receipt policy; failed responses and accounting history are retained. No sent POST is
+retried. Future transport diagnostics add only a whitelisted exception kind, byte
+count and streaming flag; they cannot explain an earlier unrecorded exception.

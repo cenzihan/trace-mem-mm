@@ -282,7 +282,8 @@ class ServiceTransport:
                 original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
                 if original.get('payload_sha256')==payload_sha:
                     raise ValueError('retired unknown model request cannot be replayed')
-            manifest = {'keys':[fingerprint], 'model':model,'payload_sha256':payload_sha}
+            manifest = {'keys':[fingerprint], 'model':model,'payload_sha256':payload_sha,
+                'request_bytes':len(_json(payload).encode()),'streaming':payload.get('stream') is True}
             receipt_http = _ReceiptHTTP(self.http, self.journal, fingerprint, payload, None)
             receipt_http.endpoint = endpoint
             transport = self.transport_type(model=model, endpoint=endpoint, ledger=self.ledger,
@@ -304,8 +305,15 @@ class ServiceTransport:
                     db.execute("UPDATE operations SET state=CASE WHEN state='received' THEN 'failed' ELSE 'unknown' END WHERE fingerprint=?", (fingerprint,))
                 phase=getattr(receipt_http,'failure_phase',None)
                 if phase in ('tls_setup','post_started','response_headers','response_body','deadline_unknown'):
+                    kind=getattr(receipt_http,'failure_kind',None)
+                    allowed_kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
+                        'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
+                        'BadStatusLine','OSError','OtherTransportError'}
                     with (self.quarantine_path.parent/'transport-failure-phases.jsonl').open('a') as f:
-                        f.write(_json({'fingerprint':fingerprint,'phase':phase,'at':datetime.now(timezone.utc).isoformat()})+'\n')
+                        f.write(_json({'fingerprint':fingerprint,'phase':phase,
+                            'transport_kind':kind if kind in allowed_kinds else None,
+                            'request_bytes':manifest['request_bytes'],'streaming':manifest['streaming'],
+                            'at':datetime.now(timezone.utc).isoformat()})+'\n')
                         f.flush();os.fsync(f.fileno())
                 raise
             with self.journal.connect() as db:
