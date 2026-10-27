@@ -22,9 +22,13 @@ throughput guarantee. The deployment lease is checked again after queueing.
 The [official guide](https://agentmemoryleaderboard.ai/docs) documents bounded
 retry handling for429 and states that concurrency is an upper bound.
 
-Patch endpoints are `/v2.2/add`, `/v2.2/search` and `/v2.2/health`. The unused
-v2.0.0 binding and unsuccessful v2.0.1 binding are superseded; their `/v2` and
-`/v2.1` routes are retired. The patch retains
+Registered patch endpoints are `/v2.1/add`, `/v2.1/search` and `/v2.1/health`.
+The registry rejected a URL change after the first Smoke, then accepted a
+separate `tracemem-mm-bailian-v2.0.2` version using the existing URLs. Those
+routes now explicitly serve v2.0.2; `/v2.2` remains an alias for the same patch.
+The old v2.0.1 job is terminal failed and must not be resumed against new code.
+Its source, tag, image and failure records remain preserved. The unused v2.0.0
+binding is superseded and `/v2` returns410. The patch retains
 the existing hosted state, receipt journals, original shared money ledger,
 immutable512-call ceiling and deletion deadline. No counters or model identity
 are reset. The earlier v1 remains separate. Six focused offline tests cover
@@ -72,6 +76,14 @@ retains the existing caption-text or exact-source-identity limitation.
 
 ## Validation status
 
+The v2.0.2 patch passed646 offline checks and Docker CI. The first official
+Smoke made11 real provider requests (9 GPT,2 embedding) before Add stopped;
+it did not reach hosted reranking or produce an official score. The worker's
+terminal410 followed intentional retirement of the failed deployment; the
+underlying contract failure was invalid optional quote metadata. The new
+version is bound but has not yet run its own official Smoke. Task-wide usage
+is1/5; the platform's hourly gate still applies. No Full run is authorized.
+
 All632 offline checks passed, including16 hosted transport tests; two subsequent
 source-preservation and old-version-isolation checks also passed. The real
 comparison completed on the previous74-question Mem-Gallery scene, preserving
@@ -91,7 +103,7 @@ saved evidence, with no model replay. All79 receipts are complete and minimized.
 
 ## Deployed native-data smoke
 
-The hosted [patch health endpoint](https://45.192.104.173/v2.2/health) uses the
+The hosted [patch health endpoint](https://45.192.104.173/v2.1/health) uses the
 existing hosted state. The original flat routes still serve the submitted v1.
 Before the admission patch, a fresh real Mem-Gallery image-containing Add and two Searches
 (one after container restart) passed. The run made2 real GPT calls,3 embedding
