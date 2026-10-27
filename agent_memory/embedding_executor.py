@@ -35,6 +35,8 @@ def _sha(raw):
 
 
 class _Journal:
+    extra_tables = frozenset()
+
     def __init__(self, root, offline_test):
         self.root = Path(root).resolve()
         allowed = Path(tempfile.gettempdir()).resolve() if offline_test else RUNTIME.resolve()
@@ -47,7 +49,7 @@ class _Journal:
             raise ValueError('journal symlinks are not supported')
         with self.connect() as db:
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if tables and tables != {'operations', 'claims'}:
+            if tables and tables not in ({'operations', 'claims'}, {'operations', 'claims'} | self.extra_tables):
                 raise ValueError('wrong embedding journal database')
             db.execute('''CREATE TABLE IF NOT EXISTS operations(
                 fingerprint TEXT PRIMARY KEY, scope TEXT NOT NULL, manifest TEXT NOT NULL,

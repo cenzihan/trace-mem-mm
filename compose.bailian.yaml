@@ -2,7 +2,7 @@
 services:
   api:
     build: ./source
-    image: trace-mem-mm:bailian-v2.0.1
+    image: trace-mem-mm:bailian-v2.0.2
     init: true
     restart: unless-stopped
     network_mode: host

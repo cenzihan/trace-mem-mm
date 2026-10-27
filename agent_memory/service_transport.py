@@ -27,15 +27,20 @@ def omit_nontext_quote_metadata(value):
     try:
         message = result['choices'][0]['message']
         card = json.loads(message['content'])
-        quotes = card['evidence_quotes']
+        quotes = card.get('evidence_quotes')
         if not isinstance(quotes,list):
-            raise ValueError('quote array required')
+            # This field is optional ranking metadata, never returned evidence.
+            # Do not interpret object values or coerce them into quotations.
+            card['evidence_quotes'] = []
+            card['omitted_quote_container_type'] = type(quotes).__name__
+            message['content'] = _json(card)
+            return result
         strings = [q for q in quotes if isinstance(q,str)]
         if len(strings) != len(quotes):
             card['evidence_quotes'] = strings
             card['omitted_nontext_quote_count'] = len(quotes)-len(strings)
             message['content'] = _json(card)
-    except (KeyError,IndexError,TypeError,ValueError):
+    except (KeyError,IndexError,TypeError,ValueError,AttributeError):
         raise ProviderFailure('invalid_contract') from None
     return result
 
@@ -44,6 +49,10 @@ class ServiceBudgetedTransport(BudgetedJSONTransport):
     def _contract(self, data, payload):
         view = omit_nontext_quote_metadata(data) if self.model=='gpt-4o-mini' else data
         return super()._contract(view,payload)
+
+
+class _ServiceJournal(_Journal):
+    extra_tables = frozenset({'discarded_auxiliary_failures'})
 
 
 class ServiceTransport:
@@ -76,11 +85,15 @@ class ServiceTransport:
                 if len(rows) != count or history_digest(rows) != authority['history'][table]['sha256']:
                     raise ValueError('original budget history changed')
         self.authority_sha = hashlib.sha256(self.authority_path.read_bytes()).hexdigest()
-        self.journal = _Journal(journal_root, offline_test)
+        self.journal = _ServiceJournal(journal_root, offline_test)
         with self.journal.connect() as db:
             columns = {row[1] for row in db.execute('PRAGMA table_info(operations)')}
             if 'receipt_policy' not in columns:
                 db.execute("ALTER TABLE operations ADD COLUMN receipt_policy TEXT NOT NULL DEFAULT 'retain'")
+            db.execute('''CREATE TABLE IF NOT EXISTS discarded_auxiliary_failures (
+                fingerprint TEXT PRIMARY KEY, attempt_id TEXT UNIQUE NOT NULL,
+                body_sha TEXT NOT NULL, summary_sha TEXT NOT NULL,
+                normalized_sha TEXT NOT NULL, discarded_at TEXT NOT NULL)''')
         self.readers = readers
         self.lock = threading.Lock()
 
@@ -105,7 +118,15 @@ class ServiceTransport:
         self.prices()
         with self.journal.connect() as db:
             rows = [dict(row) for row in db.execute('SELECT * FROM operations')]
+            discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
         for row in rows:
+            proof = discarded.get(row['fingerprint'])
+            if row['state']=='failed' and proof is not None:
+                if (row['receipt_policy']!='discarded_known_failure' or row['body'] is not None
+                        or row['redacted']!=1 or row['status']!=200 or row['transport_completed']
+                        or proof['attempt_id']!=row['attempt_id'] or proof['body_sha']!=row['body_sha']):
+                    raise ValueError('invalid discarded failure receipt')
+                continue
             if row['state'] != 'complete':
                 raise ValueError('unresolved model attempt blocks further calls; no replay')
             if (row['receipt_policy'] != 'usage_only' or row['body'] is not None
@@ -114,6 +135,50 @@ class ServiceTransport:
                 raise ValueError('invalid minimized receipt')
         if self.ledger.totals()['remaining_micro_cny'] < 5000000:
             raise ValueError('insufficient bounded budget for a complete admitted Add')
+
+    def discard_known_auxiliary_failure(self, attempt_id, expected_body_sha):
+        """Explicit operator acknowledgement only; never replay or resume an Add.
+
+        Validate a known HTTP200 response under the metadata-only correction,
+        retain its failed journal/ledger status and append proof before removing
+        the raw copy. Unknown calls, substantive errors and other failures remain
+        blocking. This method is never invoked by request handling.
+        """
+        with self.lock, self.journal.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            rows=db.execute('SELECT * FROM operations WHERE attempt_id=?',(attempt_id,)).fetchall()
+            if len(rows)!=1:raise ValueError('one exact known attempt required')
+            row=dict(rows[0])
+            if (row['state']!='failed' or row['status']!=200 or row['redacted']
+                    or row['transport_completed'] or not row['body']
+                    or row['body_sha']!=expected_body_sha
+                    or hashlib.sha256(row['body']).hexdigest()!=expected_body_sha
+                    or json.loads(row['manifest']).get('model')!='gpt-4o-mini'):
+                raise ValueError('known unredacted GPT response required')
+            original=json.loads(row['body'])
+            card=json.loads(original['choices'][0]['message']['content'])
+            if not isinstance(card,dict) or isinstance(card.get('evidence_quotes'),list):
+                raise ValueError('only invalid auxiliary containers can be discarded')
+            validator=object.__new__(ServiceBudgetedTransport);validator.model='gpt-4o-mini'
+            returned_model=validator._response_model(original)
+            usage=validator._usage(original)
+            validator._contract(original,{})
+            view=omit_nontext_quote_metadata(original)
+            normalized=json.loads(view['choices'][0]['message']['content'])
+            if card['summary']!=normalized['summary'] or normalized['evidence_quotes']!=[]:
+                raise ValueError('substantive content must be unchanged')
+            with self.ledger.connect() as ledger:
+                observed=ledger.execute('''SELECT category,http_status,returned_model,input_tokens,output_tokens
+                    FROM provider_observations WHERE attempt_id=?''',(attempt_id,)).fetchone()
+            if observed!=('invalid_contract',200,returned_model,*usage):
+                raise ValueError('matching recorded contract failure and usage required')
+            proof=dict(fingerprint=row['fingerprint'],attempt_id=attempt_id,body_sha=expected_body_sha,
+                summary_sha=hashlib.sha256(card['summary'].encode()).hexdigest(),
+                normalized_sha=hashlib.sha256(_json(view).encode()).hexdigest(),
+                discarded_at=datetime.now(timezone.utc).isoformat())
+            db.execute('INSERT INTO discarded_auxiliary_failures VALUES (:fingerprint,:attempt_id,:body_sha,:summary_sha,:normalized_sha,:discarded_at)',proof)
+            db.execute("UPDATE operations SET body=NULL,redacted=1,receipt_policy='discarded_known_failure' WHERE fingerprint=?",(row['fingerprint'],))
+            return dict(proof,original_failure_preserved=True,model_calls=0,failed_add_resumed=False)
 
     def __call__(self, endpoint, payload):
         with self.lock:
