@@ -1,6 +1,17 @@
 # Hosted reranker candidate
 
-Current patch release: `tracemem-mm-bailian-v2.0.1`. Official external-track
+Current patch release: `tracemem-mm-bailian-v2.0.2`. The first official Smoke
+exposed a well-formed GPT response whose optional evidence_quotes field was an
+object instead of an array. The service stopped on that schema mismatch. This
+patch discards invalid auxiliary containers instead of interpreting their values
+as evidence. Model/prompt, generated summary and original source remain unchanged;
+invalid substantive summaries, refusals, truncation and unknown calls still fail.
+An explicit operator-only acknowledgement can retire that known HTTP200 failure
+without any replay. It preserves the failed operation and original ledger rows,
+appends hash/usage-linked proof and removes the private raw response copy. It does
+not resume the failed Add or convert the failure into a successful observation.
+
+The original concurrency patch in v2.0.1 is retained. Official external-track
 settings require Add concurrency16–64 and Search concurrency16–256. Set both
 to16. The service admits up to16 requests, serializes model/index work to
 preserve receipt-first accounting, and waits at most30 seconds for the active
@@ -11,8 +22,9 @@ throughput guarantee. The deployment lease is checked again after queueing.
 The [official guide](https://agentmemoryleaderboard.ai/docs) documents bounded
 retry handling for429 and states that concurrency is an upper bound.
 
-Patch endpoints are `/v2.1/add`, `/v2.1/search` and `/v2.1/health`. The unused
-v2.0.0 binding is superseded and its `/v2` routes are retired. The patch retains
+Patch endpoints are `/v2.2/add`, `/v2.2/search` and `/v2.2/health`. The unused
+v2.0.0 binding and unsuccessful v2.0.1 binding are superseded; their `/v2` and
+`/v2.1` routes are retired. The patch retains
 the existing hosted state, receipt journals, original shared money ledger,
 immutable512-call ceiling and deletion deadline. No counters or model identity
 are reset. The earlier v1 remains separate. Six focused offline tests cover
@@ -79,7 +91,7 @@ saved evidence, with no model replay. All79 receipts are complete and minimized.
 
 ## Deployed native-data smoke
 
-The hosted [patch health endpoint](https://45.192.104.173/v2.1/health) uses the
+The hosted [patch health endpoint](https://45.192.104.173/v2.2/health) uses the
 existing hosted state. The original flat routes still serve the submitted v1.
 Before the admission patch, a fresh real Mem-Gallery image-containing Add and two Searches
 (one after container restart) passed. The run made2 real GPT calls,3 embedding
