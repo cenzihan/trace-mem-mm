@@ -7,14 +7,15 @@ from .container_app import read_service_token
 from .embedding_cache import RUNTIME
 from .embedding_smoke_app import read_embedding_token
 from .mem0_bridge import Mem0System
-from .mem0_transport import Mem0ServiceTransport
+from .mem0_transport import Mem0ServiceTransport,Mem0EvidenceTransport
 from .online_cards import VerifiedQuoteCards
 from .provider_http import SHARED_LEDGER,BAILIAN_BEIJING_ENDPOINT,NativeHTTPS
 from .providers import TextEmbeddingV4
 from .service_app import ServiceApplication
 
 
-def create_app(environ=None, *, _system_type=Mem0System):
+def create_app(environ=None, *, _system_type=Mem0System,
+               _transport_type=Mem0ServiceTransport,_stop_at_chat_done=False):
     env=os.environ if environ is None else environ
     if env.get('TRACEMEM_MEM0_ENABLED')!='approved-native-mem0-night':raise ValueError('explicit native activation required')
     state=Path(env['TRACEMEM_SERVICE_STATE']).resolve()
@@ -24,8 +25,9 @@ def create_app(environ=None, *, _system_type=Mem0System):
         [('gpt-4o-mini','TRACEMEM_OPENAI_TOKEN_FILE'),('text-embedding-v4','TRACEMEM_BAILIAN_TOKEN_FILE')]}
     # Reuse the original MM journal, including all prior failure acknowledgements.
     journal=RUNTIME/'bailian-v2-service'/'provider-receipts'
-    base=Mem0ServiceTransport(SHARED_LEDGER,env['TRACEMEM_LEDGER_AUTHORITY_FILE'],
-        env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers,http=NativeHTTPS(handshake_attempts=3))
+    base=_transport_type(SHARED_LEDGER,env['TRACEMEM_LEDGER_AUTHORITY_FILE'],
+        env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers,
+        http=NativeHTTPS(handshake_attempts=3,stop_at_chat_done=_stop_at_chat_done))
     expires=int(env['TRACEMEM_SERVICE_EXPIRES_AT'])
     if not time.time()<expires<=1793896200:raise ValueError('original lease must not be extended')
     store=_system_type(state/'memory.sqlite',transport=base,
@@ -40,4 +42,5 @@ def create_evidence_app(environ=None):
     if env.get('TRACEMEM_MEM0_EVIDENCE_ENABLED')!='approved-native-mem0-evidence':
         raise ValueError('explicit evidence candidate activation required')
     from .mem0_evidence import Mem0EvidenceSystem
-    return create_app(env,_system_type=Mem0EvidenceSystem)
+    return create_app(env,_system_type=Mem0EvidenceSystem,
+                      _transport_type=Mem0EvidenceTransport,_stop_at_chat_done=True)

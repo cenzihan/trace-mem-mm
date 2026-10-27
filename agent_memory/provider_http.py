@@ -92,16 +92,18 @@ class NativeHTTPS:
     """
     is_fake_http=False
 
-    def __init__(self,handshake_attempts=1):
+    def __init__(self,handshake_attempts=1,*,stop_at_chat_done=False):
         if type(handshake_attempts) is not int or not 1<=handshake_attempts<=3:
             raise ValueError('TLS setup attempts must be within1..3')
+        if type(stop_at_chat_done) is not bool:raise ValueError('explicit stream-completion policy required')
+        self.stop_at_chat_done=stop_at_chat_done
         self.handshake_attempts=handshake_attempts;self._slot=threading.Lock()
 
     def exchange(self,endpoint,body,headers,timeout,max_response_bytes):
         if not self._slot.acquire(blocking=False):raise ProviderFailure('network_error')
         result=queue.Queue(maxsize=1);cancel=threading.Event();deadline=time.monotonic()+timeout
         def worker():
-            conn=None;phase='tls_setup'
+            conn=None;phase='tls_setup';size=0;response_status=None;chat_stream=None
             try:
                 parsed=urlsplit(endpoint)
                 for setup in range(self.handshake_attempts):
@@ -121,7 +123,14 @@ class NativeHTTPS:
                 phase='post_started'
                 conn.request('POST',parsed.path,body=body,headers=headers)
                 phase='response_headers'
-                response=conn.getresponse();chunks=[];size=0
+                response=conn.getresponse();chunks=[];response_status=response.status
+                if (self.stop_at_chat_done and endpoint==OPENAI_ENDPOINT and response.status==200
+                    and response.getheader('Content-Type','').split(';')[0].strip().lower()=='text/event-stream'):
+                    requested=json.loads(body)
+                    if (requested.get('model')=='gpt-4o-mini' and requested.get('stream') is True
+                        and requested.get('stream_options')=={'include_usage':True}):
+                        from .chat_stream import CompleteChatStream
+                        chat_stream=CompleteChatStream()
                 phase='response_body'
                 while True:
                     if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
@@ -130,6 +139,10 @@ class NativeHTTPS:
                     if not chunk:break
                     chunks.append(chunk);size+=len(chunk)
                     if size>max_response_bytes:raise ProviderFailure('response_limit')
+                    # Each request owns and closes its connection. Once the full
+                    # application stream validates, waiting for HTTP EOF adds no
+                    # evidence and can turn a completed response into a failure.
+                    if chat_stream is not None and chat_stream.feed(chunk):break
                 value=HTTPReply(response.status,b''.join(chunks),{'retry-after':response.getheader('Retry-After',''),
                     'content-type':response.getheader('Content-Type','')})
             except ProviderFailure as exc:value=exc
@@ -141,7 +154,12 @@ class NativeHTTPS:
                     if conn:conn.close()
                 except Exception:pass
                 self._slot.release()
-            if isinstance(value,ProviderFailure):value.phase=phase
+            if isinstance(value,ProviderFailure):
+                value.phase=phase
+                value.response_diagnostics={'received_bytes':size,
+                    'response_status':response_status,
+                    'sse_done_frame':bool(chat_stream and chat_stream.done_frame),
+                    'sse_complete':bool(chat_stream and chat_stream.complete)}
             result.put(value)
         thread=threading.Thread(target=worker,daemon=True);thread.start()
         try:value=result.get(timeout=timeout)

@@ -56,3 +56,9 @@ class Mem0ServiceTransport(ServiceTransport):
         if model=='gpt-4o-mini' and 'memory' in json.loads(value['choices'][0]['message']['content']):
             return value
         return super().normalize_result(value,model)
+
+
+class Mem0EvidenceTransport(Mem0ServiceTransport):
+    # Same global journal and money ledger. A new execution scope cannot bypass
+    # any unknown without a separately audited permanent retirement proof.
+    receipt_scope = 'native-mem0-v3.1.1'

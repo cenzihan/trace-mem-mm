@@ -1,7 +1,7 @@
 name: Native Mem0 container validation
 on:
   push:
-    branches: [main, codex/mem0-night-baseline, codex/native-transport-isolation, codex/mem0-streaming, codex/mem0-source-evidence]
+    branches: [main, codex/mem0-night-baseline, codex/native-transport-isolation, codex/mem0-streaming, codex/mem0-source-evidence, codex/mem0-stream-completion]
     paths: ['agent_memory/**', 'tests/**', 'Dockerfile.mem0', 'requirements*.txt', '.github/workflows/mem0.yml', '.dockerignore']
   workflow_dispatch:
 permissions:

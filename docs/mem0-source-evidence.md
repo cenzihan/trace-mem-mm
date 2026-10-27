@@ -1,6 +1,6 @@
 # Native Mem0 with original evidence
 
-`tracemem-mm-mem0-evidence-v3.1.0` is a separate candidate. The completed
+`tracemem-mm-mem0-evidence-v3.1.1` is a separate candidate. The completed
 facts-only baseline remains fixed as `tracemem-mm-mem0-v3.0.3`. This candidate
 has no official result yet.
 
@@ -33,10 +33,32 @@ existing native activation flag and
 original archive for the new fixed version. Existing archives without the
 source index fail before a paid query; they are not silently backfilled.
 
-The original cumulative budget, receipt journal and
-`native-mem0-v3.0.3` receipt scope remain unchanged. No grant, historical
-unknown, lifetime counter, lease or cleanup deadline is reset. Provider traffic
+The original cumulative budget and receipt journal remain unchanged. The new
+`native-mem0-v3.1.1` execution scope still checks the entire original journal:
+unresolved calls block it unless an operator has independently audited and
+permanently retired their old scope. Retired user and payload identities remain
+blocked, their records and full reservations remain intact, and the old scope
+cannot resume. No grant, historical unknown, lifetime counter, lease or cleanup
+deadline is reset. Provider traffic
 uses only GPT4o-mini and text-embedding-v4. The new source channel itself makes
 no extra model request. Independent synthetic tests verify image identity,
 source/context preservation, scope isolation, atomic failure, restart,
 idempotence, query non-persistence and whole-record media packing.
+
+The evidence factory also enables strict application-stream completion. After
+receiving a full SSE DONE event, it validates the entire response, a single
+approved model and response identity, finish reason, and consistent usage
+totals. It then closes its dedicated connection without waiting for HTTP EOF.
+The generic transport and facts-only factory keep the old read-to-EOF behavior.
+This avoids discarding an already complete semantic response solely because
+its HTTP envelope lacks a terminating chunk. It cannot repair a stream that
+ends before the model response is complete. Such failures remain unknown,
+retain their full reservation, and never trigger a POST retry.
+
+Future transport failures record only bounded scalar diagnostics: received byte
+count, status, and whether a complete SSE marker and valid response were seen.
+They do not log chunks, prompts, keys or exception messages. An independent
+HTTP/1.1 chunk-decoder test reproduces the missing-final-chunk case, including
+partial streams, malformed usage, Unicode/event splits and no-replay behavior.
+This test establishes handling of that failure class, not the cause of a past
+unrecorded response or a general guarantee of network reliability.

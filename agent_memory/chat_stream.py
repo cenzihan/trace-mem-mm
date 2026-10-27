@@ -1,5 +1,6 @@
 """Strict Chat Completions SSE assembly; no partial answers or automatic retry."""
 import json
+import re
 
 from .provider_http import ProviderFailure
 
@@ -45,6 +46,33 @@ def assemble_chat_stream(raw):
             if usage is not None or finish!='stop' or not isinstance(chunk['usage'],dict):fail()
             usage=chunk['usage']
     if not done or finish!='stop' or usage is None or identity is None:fail()
+    inp=usage.get('prompt_tokens');out=usage.get('completion_tokens');total=usage.get('total_tokens')
+    if (type(inp) is not int or type(out) is not int or type(total) is not int
+        or inp<0 or out<0 or total!=inp+out):
+        raise ProviderFailure('invalid_usage')
     return {'id':identity,'model':model,'choices':[{'index':0,'finish_reason':finish,
         'message':{'role':'assistant','content':''.join(content)}}],'usage':usage}
+
+
+class CompleteChatStream:
+    """Recognize a complete SSE event boundary, then validate the entire stream.
+
+    Content, usage and identity stay in RAM only. A marker inside JSON, a missing
+    usage event, or a partial DONE line cannot terminate the HTTP read.
+    """
+    _end=re.compile(rb'(?:^|\n)data: *\[DONE\]\r?\n\r?\n')
+
+    def __init__(self):
+        self._chunks=[];self._tail=b'';self.done_frame=False;self.complete=False
+
+    def feed(self,chunk):
+        self._chunks.append(chunk)
+        tail=self._tail+chunk
+        self.done_frame=self.done_frame or bool(self._end.search(tail))
+        self._tail=tail[-64:]
+        if self.done_frame:
+            try:assemble_chat_stream(b''.join(self._chunks))
+            except ProviderFailure:return False
+            self.complete=True
+        return self.complete
 

@@ -310,10 +310,18 @@ class ServiceTransport:
                         'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
                         'BadStatusLine','OSError','OtherTransportError'}
                     with (self.quarantine_path.parent/'transport-failure-phases.jsonl').open('a') as f:
+                        diagnostic={}
+                        raw=getattr(receipt_http,'failure_diagnostics',None)
+                        if isinstance(raw,dict):
+                            for key in ('received_bytes','response_status'):
+                                val=raw.get(key)
+                                if type(val) is int and 0<=val<=8*1024*1024:diagnostic[key]=val
+                            for key in ('sse_done_frame','sse_complete'):
+                                if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
                         f.write(_json({'fingerprint':fingerprint,'phase':phase,
                             'transport_kind':kind if kind in allowed_kinds else None,
                             'request_bytes':manifest['request_bytes'],'streaming':manifest['streaming'],
-                            'at':datetime.now(timezone.utc).isoformat()})+'\n')
+                            'at':datetime.now(timezone.utc).isoformat(),**diagnostic})+'\n')
                         f.flush();os.fsync(f.fileno())
                 raise
             with self.journal.connect() as db:

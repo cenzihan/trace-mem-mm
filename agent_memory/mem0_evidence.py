@@ -6,7 +6,7 @@ from .mem0_bridge import Mem0System
 from .protocol import ContractError, MEDIA_LIMIT, content_parts, image_hashes, media_size, validate_search
 from .retrieval import bm25, ranked
 
-VERSION = 'tracemem-mm-mem0-evidence-v3.1.0'
+VERSION = 'tracemem-mm-mem0-evidence-v3.1.1'
 
 
 def pack_mixed(originals, facts, top_k, *, limit=MEDIA_LIMIT):
