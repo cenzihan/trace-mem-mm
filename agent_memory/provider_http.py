@@ -28,8 +28,9 @@ SHARED_LEDGER=Path(__file__).resolve().parent.parent/'runtime/development-budget
 
 
 class ProviderFailure(RuntimeError):
-    def __init__(self,category,status=None,attempt_id=None):
+    def __init__(self,category,status=None,attempt_id=None,phase=None):
         self.category=category;self.status=status;self.attempt_id=attempt_id
+        self.phase=phase
         super().__init__('provider '+category+((' HTTP '+str(status)) if status is not None else ''))
 
 
@@ -74,28 +75,44 @@ def validate_endpoint(model,endpoint):
 
 
 class NativeHTTPS:
-    """One direct TLS exchange, bounded caller deadline, no automatic retries.
+    """One HTTP POST, bounded deadline; optional unauthenticated TLS setup repeats.
 
     A daemon worker bounds even OS DNS waiting. On timeout the outcome is uncertain;
     its slot stays busy until exit and it checks cancellation before sending the POST.
     """
     is_fake_http=False
 
-    def __init__(self):self._slot=threading.Lock()
+    def __init__(self,handshake_attempts=1):
+        if type(handshake_attempts) is not int or not 1<=handshake_attempts<=3:
+            raise ValueError('TLS setup attempts must be within1..3')
+        self.handshake_attempts=handshake_attempts;self._slot=threading.Lock()
 
     def exchange(self,endpoint,body,headers,timeout,max_response_bytes):
         if not self._slot.acquire(blocking=False):raise ProviderFailure('network_error')
         result=queue.Queue(maxsize=1);cancel=threading.Event();deadline=time.monotonic()+timeout
         def worker():
-            conn=None
+            conn=None;phase='tls_setup'
             try:
                 parsed=urlsplit(endpoint)
-                conn=http.client.HTTPSConnection(parsed.hostname,port=443,timeout=timeout,context=ssl.create_default_context())
-                conn.connect()
+                for setup in range(self.handshake_attempts):
+                    if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
+                    connect_timeout=(timeout if self.handshake_attempts==1 else min(10,max(.001,deadline-time.monotonic())))
+                    conn=http.client.HTTPSConnection(parsed.hostname,port=443,timeout=connect_timeout,context=ssl.create_default_context())
+                    try:
+                        # Only unauthenticated TCP/TLS setup can be repeated. No
+                        # HTTP headers/body have been sent, even on an SSL error.
+                        conn.connect();break
+                    except ssl.SSLCertVerificationError:raise
+                    except (OSError,TimeoutError):
+                        conn.close();conn=None
+                        if setup+1==self.handshake_attempts:raise
                 if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
                 conn.sock.settimeout(max(.001,deadline-time.monotonic()))
+                phase='post_started'
                 conn.request('POST',parsed.path,body=body,headers=headers)
+                phase='response_headers'
                 response=conn.getresponse();chunks=[];size=0
+                phase='response_body'
                 while True:
                     if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
                     if conn.sock:conn.sock.settimeout(max(.001,deadline-time.monotonic()))
@@ -113,11 +130,12 @@ class NativeHTTPS:
                     if conn:conn.close()
                 except Exception:pass
                 self._slot.release()
+            if isinstance(value,ProviderFailure):value.phase=phase
             result.put(value)
         thread=threading.Thread(target=worker,daemon=True);thread.start()
         try:value=result.get(timeout=timeout)
         except queue.Empty:
-            cancel.set();raise ProviderFailure('timeout') from None
+            cancel.set();raise ProviderFailure('timeout',phase='deadline_unknown') from None
         if isinstance(value,Exception):raise value from None
         return value
 

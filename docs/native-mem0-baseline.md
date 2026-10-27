@@ -3,7 +3,7 @@
 This opt-in profile runs the real `mem0ai==2.2.1` package. Its wheel SHA256 is
 `fe91bb91ac8926231993a4aa58df00a60c6c74c709e6a338fe399500776eef4d`.
 The Linux CPython3.11 dependency lock includes wheel hashes. This is a distinct
-experimental version, `tracemem-mm-mem0-v3.0.0`, with no claimed evaluation result.
+experimental profile, now `tracemem-mm-mem0-v3.0.1`, with no claimed evaluation result.
 Mem0 is Apache-2.0 licensed; its license remains in the installed distribution.
 
 Mem0 performs native additive extraction, deduplication, entity linking and hybrid
@@ -12,6 +12,18 @@ Provider adapters use the required GPT4o-mini and text-embedding-v4 (256 dimensi
 through the original receipt-first budget transport. They do not instantiate an
 unaccounted provider SDK. Telemetry is disabled before importing Mem0. SDK logs
 that could include source content are suppressed.
+
+The transport may repeat up to three unauthenticated TLS handshakes before sending
+exactly one HTTP POST. It never retries a sent request, response read, or certificate
+verification failure. New failures record only their transport phase. A legacy
+failure with no phase remains unknown; the phase must never be inferred afterward.
+
+An operator can permanently retire an unresolved input scope, retaining the exact
+unknown receipt and its full money hold. A separate, reviewed receipt scope can
+then process independent inputs after validating an append-only quarantine proof.
+The retired user scope and known model-payload hashes remain blocked. The original
+scope stays blocked, and an abandonment is never presented as success or permission
+to resume/replay that operation. There is no HTTP route to create such proofs.
 
 The multimodal bridge captions each source/query image using GPT4o-mini, low image
 detail. Source text and captions are sent to native Mem0 in ordered, lossless

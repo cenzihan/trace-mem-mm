@@ -29,6 +29,7 @@ class Mem0BudgetedTransport(ServiceBudgetedTransport):
 class Mem0ServiceTransport(ServiceTransport):
     transport_type = Mem0BudgetedTransport
     output_token_cap = 2048
+    receipt_scope = 'native-mem0-v3.0.1'
 
     def normalize_result(self, value, model):
         if model=='gpt-4o-mini' and 'memory' in json.loads(value['choices'][0]['message']['content']):
