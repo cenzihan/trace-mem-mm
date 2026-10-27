@@ -11,7 +11,7 @@ route is retired. Evaluation credentials and private task receipts are not in
 this repository.
 
 The separate [choice-context candidate](docs/mem0-options-context.md),
-`tracemem-mm-mem0-options-v4.3.0`, additionally consumes the API's optional choice
+`tracemem-mm-mem0-options-v4.3.1`, additionally consumes the API's optional choice
 context. It is not yet deployed or officially scored. Original accounting, model
 identity, failed/unknown receipts, source tags and service history are preserved.
 
