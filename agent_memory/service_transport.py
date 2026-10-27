@@ -267,6 +267,42 @@ class ServiceTransport:
             db.execute("UPDATE operations SET body=NULL,redacted=1,receipt_policy='discarded_known_failure' WHERE fingerprint=?",(row['fingerprint'],))
             return dict(proof,original_failure_preserved=True,model_calls=0,failed_add_resumed=False)
 
+    def record_transport_failure(self, fingerprint, receipt_http, payload):
+        """Append bounded scalar diagnostics for this attempt, never infer dispatch.
+
+        Missing phases stay unknown. This record does not settle money, change
+        journal state, permit replay, or add diagnostics to historical attempts.
+        """
+        phase=getattr(receipt_http,'failure_phase',None)
+        phases={'tls_setup','post_started','response_headers','response_body','deadline_unknown'}
+        kind=getattr(receipt_http,'failure_kind',None)
+        kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
+            'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
+            'BadStatusLine','OSError','OtherTransportError','HTTPXTimeout',
+            'HTTPXRemoteProtocolError','HTTPXConnectError','HTTPXReadError','HTTPXWriteError'}
+        diagnostic={}
+        raw=getattr(receipt_http,'failure_diagnostics',None)
+        if isinstance(raw,dict):
+            size=raw.get('received_bytes');status=raw.get('response_status')
+            if type(size) is int and 0<=size<=8*1024*1024:diagnostic['received_bytes']=size
+            if type(status) is int and 100<=status<=599:diagnostic['response_status']=status
+            for key in ('sse_done_frame','sse_complete','http2'):
+                if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
+        row={'fingerprint':fingerprint,'phase':phase if isinstance(phase,str) and phase in phases else None,
+            'transport_kind':kind if isinstance(kind,str) and kind in kinds else None,
+            'request_bytes':len(_json(payload).encode()),'streaming':payload.get('stream') is True,
+            'at':datetime.now(timezone.utc).isoformat(),**diagnostic}
+        line=(_json(row)+'\n').encode('utf-8')
+        path=self.quarantine_path.parent/'transport-failure-phases.jsonl'
+        # Called under the service lock after durable failure classification.
+        # A full/unwritable diagnostic sink must not mask the original failure.
+        try:
+            with path.open('ab') as f:
+                if os.fstat(f.fileno()).st_size+len(line)>256*1024:return False
+                f.write(line);f.flush();os.fsync(f.fileno())
+        except OSError:return False
+        return True
+
     def __call__(self, endpoint, payload):
         with self.lock:
             self.ready()
@@ -303,27 +339,7 @@ class ServiceTransport:
             except BaseException:
                 with self.journal.connect() as db:
                     db.execute("UPDATE operations SET state=CASE WHEN state='received' THEN 'failed' ELSE 'unknown' END WHERE fingerprint=?", (fingerprint,))
-                phase=getattr(receipt_http,'failure_phase',None)
-                if phase in ('tls_setup','post_started','response_headers','response_body','deadline_unknown'):
-                    kind=getattr(receipt_http,'failure_kind',None)
-                    allowed_kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
-                        'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
-                        'BadStatusLine','OSError','OtherTransportError','HTTPXTimeout',
-                        'HTTPXRemoteProtocolError','HTTPXConnectError','HTTPXReadError','HTTPXWriteError'}
-                    with (self.quarantine_path.parent/'transport-failure-phases.jsonl').open('a') as f:
-                        diagnostic={}
-                        raw=getattr(receipt_http,'failure_diagnostics',None)
-                        if isinstance(raw,dict):
-                            for key in ('received_bytes','response_status'):
-                                val=raw.get(key)
-                                if type(val) is int and 0<=val<=8*1024*1024:diagnostic[key]=val
-                            for key in ('sse_done_frame','sse_complete','http2'):
-                                if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
-                        f.write(_json({'fingerprint':fingerprint,'phase':phase,
-                            'transport_kind':kind if kind in allowed_kinds else None,
-                            'request_bytes':manifest['request_bytes'],'streaming':manifest['streaming'],
-                            'at':datetime.now(timezone.utc).isoformat(),**diagnostic})+'\n')
-                        f.flush();os.fsync(f.fileno())
+                self.record_transport_failure(fingerprint,receipt_http,payload)
                 raise
             with self.journal.connect() as db:
                 row = db.execute('SELECT * FROM operations WHERE fingerprint=?', (fingerprint,)).fetchone()
