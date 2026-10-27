@@ -89,6 +89,7 @@ class RerankJSONTransport(BudgetedJSONTransport):
 
 class HostedRerankTransport(ServiceTransport):
     """Same original ledger, separate minimized journal and immutable call ceiling."""
+    transport_type = RerankJSONTransport
     def __init__(self, *args, call_limit, **kwargs):
         if type(call_limit) is not int or not 1 <= call_limit <= 4096:
             raise ValueError('explicit bounded hosted call limit required')
@@ -135,7 +136,7 @@ class HostedRerankTransport(ServiceTransport):
             fingerprint=uuid.uuid4().hex
             receipt_http=_ReceiptHTTP(self.http,self.journal,fingerprint,payload,None)
             receipt_http.endpoint=endpoint
-            transport=RerankJSONTransport(model=MODEL,endpoint=endpoint,ledger=self.ledger,rate=rate,
+            transport=self.transport_type(model=MODEL,endpoint=endpoint,ledger=self.ledger,rate=rate,
                 credential_reader=self.readers.get(MODEL),http=receipt_http,mode=self.mode,
                 enabled=True,prices_confirmed=True,timeout_seconds=120,max_response_bytes=65536,
                 attempt_observer=lambda attempt:self.journal.attach(fingerprint,attempt))

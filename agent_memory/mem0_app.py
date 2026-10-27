@@ -53,3 +53,18 @@ def create_raw_app(environ=None):
         raise ValueError('explicit raw-memory ablation activation required')
     from .mem0_raw import Mem0RawSystem,Mem0RawTransport
     return create_app(env,_system_type=Mem0RawSystem,_transport_type=Mem0RawTransport)
+
+
+def create_visual_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_VISUAL_ENABLED')!='approved-native-mem0-visual':
+        raise ValueError('explicit visual-rerank candidate activation required')
+    from .visual_rerank import VisualHostedTransport,VisualScorer,MODEL
+    from .mem0_visual import Mem0VisualSystem
+    from .mem0_raw import Mem0RawTransport
+    rerank=VisualHostedTransport(SHARED_LEDGER,env['TRACEMEM_LEDGER_AUTHORITY_FILE'],
+        env['TRACEMEM_RERANK_PRICES_FILE'],RUNTIME/'bailian-v2-service'/'rerank-receipts',
+        {MODEL:lambda:read_embedding_token(env['TRACEMEM_BAILIAN_TOKEN_FILE'])},call_limit=512)
+    def make_store(*args,**kwargs):
+        return Mem0VisualSystem(*args,scoring_adapter=VisualScorer(rerank),**kwargs)
+    return create_app(env,_system_type=make_store,_transport_type=Mem0RawTransport)

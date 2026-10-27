@@ -40,6 +40,10 @@ class Mem0RawSystem(Mem0EvidenceSystem):
         # Defense in depth: inherited helpers cannot introduce a caption call.
         return text_of(parts)
 
+    def _order_sources(self, payload, parts, rows, order, identities):
+        """Explicit candidate extension point; raw v4 ordering is unchanged."""
+        return order
+
     def _write_native(self, payload):
         descriptions = []
         for ordinal, message in enumerate(payload['messages']):
@@ -103,6 +107,7 @@ class Mem0RawSystem(Mem0EvidenceSystem):
             lexical_ids = ranked({mid: score for mid, score in lexical.items() if score > 0})
             fused = ranked(rrf([native_ids, lexical_ids]))
             order = list(dict.fromkeys([*sorted(identities), *fused]))
+            order = self._order_sources(payload, parts, rows, order, identities)
             positions = {(r[2], r[3], r[4]): r[0] for r in rows}
             expanded, seen = [], set()
             for rank, mid in enumerate(order):
