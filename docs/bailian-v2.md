@@ -1,6 +1,9 @@
 # Hosted reranker candidate
 
-Current patch release: `tracemem-mm-bailian-v2.0.2`. The first official Smoke
+Current patch release: `tracemem-mm-bailian-v2.0.3`. The final format audit adds
+strict GPT source-card JSON Schema,20-message admission and empty-options
+compatibility. See the [itemized audit](official-format-audit.md) for wire checks,
+capacity limits and remaining verification boundaries. The first official Smoke
 exposed a well-formed GPT response whose optional evidence_quotes field was an
 object instead of an array. The service stopped on that schema mismatch. This
 patch discards invalid auxiliary containers instead of interpreting their values
@@ -24,8 +27,10 @@ retry handling for429 and states that concurrency is an upper bound.
 
 Registered patch endpoints are `/v2.1/add`, `/v2.1/search` and `/v2.1/health`.
 The registry rejected a URL change after the first Smoke, then accepted a
-separate `tracemem-mm-bailian-v2.0.2` version using the existing URLs. Those
-routes now explicitly serve v2.0.2; `/v2.2` remains an alias for the same patch.
+separate `tracemem-mm-bailian-v2.0.2` version using the existing URLs. The next
+patch keeps that registered address and is separately versioned as v2.0.3.
+`/v2.2` was the previous patch alias; current deployment identity is reported
+by health and must match the selected official version before submission.
 The old v2.0.1 job is terminal failed and must not be resumed against new code.
 Its source, tag, image and failure records remain preserved. The unused v2.0.0
 binding is superseded and `/v2` returns410. The patch retains

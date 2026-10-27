@@ -15,6 +15,7 @@ from .budget import BudgetLedger, VerifiedRate
 from .embedding_executor import _Journal, _ReceiptHTTP, _json
 from .provider_http import (BudgetedJSONTransport, NativeHTTPS, SHARED_LEDGER, ProviderFailure,
                             OPENAI_ENDPOINT, BAILIAN_BEIJING_ENDPOINT)
+from .providers import source_card_response_format
 
 
 def history_digest(rows):
@@ -46,9 +47,19 @@ def omit_nontext_quote_metadata(value):
 
 
 class ServiceBudgetedTransport(BudgetedJSONTransport):
+    def _bounds(self, payload):
+        bounds = super()._bounds(payload)
+        if self.model=='gpt-4o-mini' and payload.get('response_format') not in (
+                {'type':'json_object'},source_card_response_format()):
+            raise ValueError('reviewed source-card JSON format required')
+        return bounds
+
     def _contract(self, data, payload):
         view = omit_nontext_quote_metadata(data) if self.model=='gpt-4o-mini' else data
-        return super()._contract(view,payload)
+        super()._contract(view,payload)
+        if self.model=='gpt-4o-mini':
+            card=json.loads(view['choices'][0]['message']['content'])
+            if not card['summary'].strip():raise ProviderFailure('invalid_contract')
 
 
 class _ServiceJournal(_Journal):

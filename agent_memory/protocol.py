@@ -110,8 +110,8 @@ def validate_search(payload):
     if type(payload["top_k"]) is not int or payload["top_k"] < 1:
         raise ContractError("top_k must be a positive integer")
     if "options" in payload:
-        if not isinstance(payload["options"], list) or not payload["options"]:
-            raise ContractError("options must be a non-empty top-level string array")
+        if not isinstance(payload["options"], list):
+            raise ContractError("options must be a top-level string array")
         for option in payload["options"]:
             nonempty(option, "option")
     parts = content_parts(payload["query"])

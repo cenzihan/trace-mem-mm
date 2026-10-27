@@ -14,11 +14,12 @@ from .protocol import ContractError,text_of,validate_search
 from .service_app import ServingSystem,ServiceApplication
 from .service_transport import ServiceTransport
 
-VERSION='tracemem-mm-bailian-v2.0.2'
+VERSION='tracemem-mm-bailian-v2.0.3'
 
 
 class BailianServingSystem(ServingSystem):
     reranker_model=MODEL
+    model_add_message_limit=20
 
     def search(self,payload):
         parts=validate_search(payload)
@@ -50,12 +51,13 @@ def create_app(environ=None):
     if not time.time()<expires<=time.time()+28*86400:raise ValueError('explicit hosted service lease required')
     store=BailianServingSystem(state/'memory.sqlite',
         embedding=TextEmbeddingV4(BAILIAN_BEIJING_ENDPOINT,base,dimensions=256),
-        card_adapter=VerifiedQuoteCards(base,image_detail='low'),
+        card_adapter=VerifiedQuoteCards(base,image_detail='low',structured_output=True),
         scoring_adapter=BailianScorer(rerank,env.get('TRACEMEM_RERANK_ENDPOINT',BAILIAN_RERANK_ENDPOINT)))
     capabilities=store.capabilities
     store.capabilities=lambda:dict(capabilities(),version=VERSION,deployment_profile='hosted_bailian_v2',
         release_stage='versioned-hosted-candidate',concurrency=1,admission_capacity=16,
         queue_wait_seconds=30,receipt_content_logging=False,
+        source_card_format='strict-json-schema',max_add_messages=20,
         reranker_weights_verified=False,reranker_source_text_only=True,
         readiness_scope='local-config-budget-and-journals; upstream not probed')
     readiness=CombinedReadiness(base,rerank)
