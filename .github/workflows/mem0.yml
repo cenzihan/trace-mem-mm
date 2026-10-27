@@ -17,10 +17,13 @@ jobs:
         run: docker build -f Dockerfile.mem0 -t tracemem-native:test .
       - name: Real SDK with synthetic models and no network
         run: |
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
-            --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
-            --mount "type=bind,src=$GITHUB_WORKSPACE/fixtures,dst=/app/fixtures,readonly" \
-            --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
-            --mount "type=bind,src=$GITHUB_WORKSPACE/compose.yaml,dst=/app/compose.yaml,readonly" \
-            tracemem-native:test python -B -m unittest discover -s tests -v
+          # The full Windows suite also covers retired msvcrt-only experiment
+          # launchers. Linux checks exercise the shipped service and changed code.
+          for pattern in test_mem0_native.py test_budget.py test_provider_http.py test_service_transport.py test_service_queue.py test_official_formats.py test_container_app.py test_context_candidate.py; do
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/fixtures,dst=/app/fixtures,readonly" \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
+              tracemem-native:test python -B -m unittest discover -s tests -p "$pattern" -v
+          done
