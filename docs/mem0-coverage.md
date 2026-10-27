@@ -42,3 +42,11 @@ Offline checks include the original 16 coverage regressions and ten new global
 comparison, budget, index-mapping and failure controls. They use mocked providers
 and do not establish live reliability or score gains. The fixed deployed v4.3.1
 release remains unchanged while this candidate is validated.
+
+The v4.4.1 independent live preflight also failed the positive first-result
+control despite 14 successful model calls. Its remaining controls were not run;
+the unused finite allowance was closed. The exact returned ordering was not
+retained, and no historical detail is inferred from the boolean failure. This
+candidate stays a draft: no deployment or official evaluation is authorized by
+these failed controls. Further work needs prospective independent-control rank
+diagnostics and evidence of improvement, not repeated official submissions.
