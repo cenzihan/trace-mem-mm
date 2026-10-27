@@ -45,7 +45,7 @@ class Mem0BudgetedTransport(ServiceBudgetedTransport):
 class Mem0ServiceTransport(ServiceTransport):
     transport_type = Mem0BudgetedTransport
     output_token_cap = 2048
-    receipt_scope = 'native-mem0-v3.0.2'
+    receipt_scope = 'native-mem0-v3.0.3'
 
     def __call__(self,endpoint,payload):
         if payload.get('model')=='gpt-4o-mini':

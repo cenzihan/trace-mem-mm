@@ -3,7 +3,7 @@
 This opt-in profile runs the real `mem0ai==2.2.1` package. Its wheel SHA256 is
 `fe91bb91ac8926231993a4aa58df00a60c6c74c709e6a338fe399500776eef4d`.
 The Linux CPython3.11 dependency lock includes wheel hashes. This is a distinct
-experimental profile, now `tracemem-mm-mem0-v3.0.1`, with no claimed evaluation result.
+experimental profile, now `tracemem-mm-mem0-v3.0.3`, with no claimed evaluation result.
 Mem0 is Apache-2.0 licensed; its license remains in the installed distribution.
 
 Mem0 performs native additive extraction, deduplication, entity linking and hybrid
@@ -75,3 +75,18 @@ cannot become stored memory. Successful wire bodies are minimized using the exis
 receipt policy; failed responses and accounting history are retained. No sent POST is
 retried. Future transport diagnostics add only a whitelisted exception kind, byte
 count and streaming flag; they cannot explain an earlier unrecorded exception.
+
+## Bounded caption images (v3.0.3)
+
+A separate real-image connectivity check also disconnected before HTTP response
+headers with streaming enabled. Streaming alone therefore did not establish a fix.
+This profile additionally sends an in-memory JPEG derivative, fitting within512pixels
+per side without enlargement, quality85, and at most256KiB, to the existing low-detail
+caption call. It applies EXIF orientation, composites transparency on white, and
+strips metadata. Source images in the archive remain byte-for-byte unchanged.
+Animated or undecodable images are rejected; the local decode limit is24million pixels.
+
+This is a bounded transport hypothesis, not a claim of equivalent visual detail or
+better benchmark performance. Fine text and small objects may be lost in the view.
+The fixed models, native Mem0 prompts, and no-retry policy remain unchanged.
+See [OpenAI's image input and detail guidance](https://developers.openai.com/api/docs/guides/images-vision).

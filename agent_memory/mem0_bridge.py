@@ -18,8 +18,9 @@ import uuid
 from .protocol import ContractError,canonical,content_parts,text_of,validate_add,validate_search
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
+from .caption_image import caption_part
 
-VERSION='tracemem-mm-mem0-v3.0.2'
+VERSION='tracemem-mm-mem0-v3.0.3'
 MEM0_VERSION='2.2.1'
 _adapters=ContextVar('mem0_budget_adapters')
 _factory_lock=threading.Lock()
@@ -131,6 +132,7 @@ class Mem0System(MemoryStore):
             models=['gpt-4o-mini','text-embedding-v4'],embedding_dimensions=256,
             search_evidence='derived-memory-facts',originals_archived=True,
             vision='gpt-4o-mini-image-caption',telemetry=False,concurrency=1,
+            caption_preview='jpeg-512-q85-max256KiB',original_image_mutated=False,
             admission_capacity=16,queue_wait_seconds=30,receipt_content_logging=False)
 
     def ready(self):
@@ -142,7 +144,7 @@ class Mem0System(MemoryStore):
         text=text_of(parts);images=[p for p in parts if p['type']=='image_url']
         captions=[]
         # One image per caption call: preserve every image regardless of message size.
-        for part in images:captions.append(self.cards.extract([part])['summary'])
+        for part in images:captions.append(self.cards.extract([caption_part(part)])['summary'])
         if captions:text+='\nDerived image descriptions (may be uncertain):\n'+'\n'.join(captions)
         return text.strip()
 
