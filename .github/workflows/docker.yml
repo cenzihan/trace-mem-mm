@@ -63,12 +63,13 @@ jobs:
             trace-mem-mm:ci-smoke-import python -B -c \
             "import agent_memory.embedding_smoke_app, agent_memory.granted_embedding_smoke, deploy.embedding_smoke_test, deploy.audit_embedding_smoke, scripts.prepare_embedding_smoke_grant, scripts.reconcile_embedding_smoke_grant; print('Embedding smoke imports passed; no credentials or provider calls.')"
 
-      - name: Verify finite embedding smoke contracts without providers
+      - name: Verify embedding and hosted-rerank contracts without providers
         run: |
           for pattern in 'test_embedding_smoke*.py' 'test_granted_embedding_smoke.py' 'test_bailian_rerank.py' 'test_online_candidate.py' 'test_service_transport.py' 'test_budget.py' 'test_provider_http.py'; do
             docker run --rm --network none --read-only --cap-drop ALL \
               --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
               --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \
+              --mount "type=bind,src=$GITHUB_WORKSPACE/fixtures,dst=/app/fixtures,readonly" \
               --mount "type=bind,src=$GITHUB_WORKSPACE/scripts,dst=/app/scripts,readonly" \
               trace-mem-mm:ci-smoke-import python -B -m unittest discover -s tests -p "$pattern" -v
           done
