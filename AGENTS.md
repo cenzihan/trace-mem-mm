@@ -28,3 +28,13 @@ or prompt tuning on evaluation answers. Default-service Qwen reranking is disabl
 the frozen V6 research scripts separately support explicit candidate-only scoring.
 No public deployment, enrollment, repository publication or new credentials are
 authorized by this checkout. Run python scripts/run_checks.py for offline tests.
+Current hosted-candidate authorization 2026-10-27: the user explicitly approved using
+Bailian qwen3-vl-rerank to remove the private GPU tunnel dependency. This supersedes
+the prior identical-Qwen2B-weight restriction for the NEW version only. Preserve
+the submitted v1 image/tag/source and all historical failures/results. The hosted
+alias has no verified identical weight revision; do not claim equivalence. Prepare
+and validate a distinct v2 against the prior real Mem-Gallery candidate pools,
+using the original server-owned CNY500 ledger only. Never reopen the closed632-call
+grant or the completed Coding pilot. Freeze a new finite rerank comparison before
+dispatch; no unknown replay, no query/raw response publishing, no silent version
+replacement. Official Smoke remains task-wide maximum5, Full unauthorized.

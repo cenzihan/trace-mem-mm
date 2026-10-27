@@ -13,7 +13,7 @@ from pathlib import Path
 
 CONSENT_CAP_MICRO_CNY = 500_000_000
 MAX_SQLITE_INTEGER = 2**63-1
-ALLOWED_MODELS = {"text-embedding-v4", "gpt-4o-mini"}
+ALLOWED_MODELS = {"text-embedding-v4", "gpt-4o-mini", "qwen3-vl-rerank"}
 
 
 def micro_cny(value):
@@ -44,7 +44,7 @@ class VerifiedRate:
 
     def validate(self):
         if self.model not in ALLOWED_MODELS:
-            raise ValueError("only Academic embedding/LLM models are supported")
+            raise ValueError("only reviewed embedding, LLM and scoring models are supported")
         if self.currency != "CNY":
             raise ValueError("verified CNY rates/FX required; no implicit currency conversion")
         if self.conversion_basis not in ("verified_fx", "budget_assumption_not_market_fx"):
@@ -215,7 +215,7 @@ class BudgetLedger:
             raise ValueError('invalid provider observation')
         if http_status is not None and (type(http_status) is not int or not 100<=http_status<=599):
             raise ValueError('invalid HTTP status')
-        models={'gpt-4o-mini','gpt-4o-mini-2024-07-18','text-embedding-v4'}
+        models=ALLOWED_MODELS | {'gpt-4o-mini-2024-07-18'}
         if returned_model is not None and returned_model not in models:
             raise ValueError('unapproved response model cannot be stored')
         token_count(elapsed_ms)

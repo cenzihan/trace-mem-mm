@@ -13,12 +13,13 @@ from .system import AgentMemorySystem, RetrievalConfig
 
 class OnlineDenseRerankSystem(AgentMemorySystem):
     candidate_limit = 100
+    reranker_model = 'Qwen/Qwen3-VL-Reranker-2B'
 
     def __init__(self, path, *, embedding, card_adapter, scoring_adapter):
         if (getattr(embedding, 'model', None) != 'text-embedding-v4'
                 or getattr(embedding, 'dimensions', None) != 256
                 or getattr(card_adapter, 'model', None) != 'gpt-4o-mini'
-                or getattr(scoring_adapter, 'model', None) != 'Qwen/Qwen3-VL-Reranker-2B'):
+                or getattr(scoring_adapter, 'model', None) != self.reranker_model):
             raise ValueError('explicit fixed academic model adapters required')
         super().__init__(path, RetrievalConfig(cards=True, temporal=False, links=False,
                          image_identity=True, dense=True, rerank=True, candidate_limit=100),

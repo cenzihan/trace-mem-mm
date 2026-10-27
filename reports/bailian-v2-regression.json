@@ -1,0 +1,47 @@
+{
+  "state": "complete_same_candidate_pool_engineering_regression",
+  "official_score": false,
+  "new_unseen_benchmark": false,
+  "questions": 74,
+  "scored_questions": 60,
+  "empty_gold_questions": 14,
+  "candidate_pairs": 7400,
+  "hosted_calls": 79,
+  "new_gpt_calls": 0,
+  "new_embedding_calls": 0,
+  "metrics": {
+    "old": {
+      "20": {
+        "fractional_recall": 0.9051686507936508,
+        "any_hit": 0.9833333333333333,
+        "all_evidence_coverage": 0.8333333333333334
+      },
+      "100": {
+        "fractional_recall": 0.9922916666666667,
+        "any_hit": 1.0,
+        "all_evidence_coverage": 0.9666666666666667
+      }
+    },
+    "new": {
+      "20": {
+        "fractional_recall": 0.9252083333333333,
+        "any_hit": 0.9833333333333333,
+        "all_evidence_coverage": 0.8666666666666667
+      },
+      "100": {
+        "fractional_recall": 0.9922916666666667,
+        "any_hit": 1.0,
+        "all_evidence_coverage": 0.9666666666666667
+      }
+    }
+  },
+  "r20_delta_percentage_points": 2.003968253968247,
+  "recommended_quality_gate_passed": true,
+  "quality_gate_is_engineering_choice_not_statistical_noninferiority": true,
+  "rerank_only_median_seconds": 1.8105,
+  "rerank_only_max_seconds": 13.296,
+  "not_comparable_to_old_full_Search_latency": true,
+  "improved_questions": 5,
+  "regressed_questions": 2,
+  "scored_at": "2026-10-27T04:28:12.069340+00:00"
+}
