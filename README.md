@@ -9,9 +9,10 @@ route is retired. Evaluation credentials and private task receipts are not in
 this repository.
 
 The separate [evidence-context candidate](docs/evidence-context-candidate.md),
-`tracemem-mm-context-v2.1.0-rc1`, is a library-only successor with synthetic
-regression checks. It is not selected by a service factory or deployed, and has
-no new real-model benchmark or official score. The fixed v2.0.4 stays unchanged.
+`tracemem-mm-context-v2.1.0-rc1`, has an explicitly activated service factory
+prepared for an authorized official Smoke. It keeps the original accounting and
+model limits. No improved benchmark score is established yet; the v2.0.4 image
+and tag remain the previous integration baseline.
 
 ## Historical engineering milestones
 

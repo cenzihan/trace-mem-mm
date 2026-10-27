@@ -1,9 +1,13 @@
 # Evidence-context retrieval candidate
 
 `tracemem-mm-context-v2.1.0-rc1` is an opt-in library implementation in
-`agent_memory/context_candidate.py`. No service factory, image, endpoint, bound
-version, model journal, lifetime call limit, financial ledger, or retention
-schedule is changed. The published v2.0.4 remains the operational baseline.
+`agent_memory/context_candidate.py`. The explicit `agent_memory.context_app`
+factory is now prepared for an authorized official Smoke. It requires both
+the existing hosted activation and `TRACEMEM_CONTEXT_RETRIEVAL_ENABLED` set to
+`approved-context-v2.1.0-rc1`. The default `bailian_app` factory stays on v2.0.4.
+The candidate reuses the original model journals, lifetime call limit, financial
+ledger and retention schedule; none are reset. A fixed released tag and exact
+endpoint version must be checked before submission. No improved score is claimed.
 
 ## Confirmed implementation limits and changes
 
@@ -63,5 +67,8 @@ Do not tune on protected official questions/answers or reopen old exhausted
 experimental grants. A calibrated abstention rule is still absent; an arbitrary
 threshold fitted to a small private Smoke would not be valid evidence.
 
-No official retry or Full run is authorized by this document. The task's
-existing shared Smoke limit and diagnostic hold remain in effect.
+The operator separately authorized one new Multimodal Smoke for this fixed
+candidate. It uses the final remaining slot in the original task-wide five-run
+limit, shared with Coding; it does not grant an additional retry or a Full run.
+The candidate remains experimental until that run completes and quality can be
+assessed. Coding diagnosis remains unresolved and its previous job is not resumed.

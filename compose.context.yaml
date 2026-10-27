@@ -1,0 +1,46 @@
+# Standalone versioned service; reuse the original server-owned ledger and keys.
+services:
+  api:
+    build: ./source
+    image: trace-mem-mm:context-v2.1.0-rc1
+    init: true
+    restart: unless-stopped
+    network_mode: host
+    command: [gunicorn, --config, /app/deploy/gunicorn.conf.py, --bind, '127.0.0.1:8769', --threads, '18', --max-requests, '0', 'agent_memory.context_app:create_app()']
+    environment:
+      TRACEMEM_CONTEXT_RETRIEVAL_ENABLED: approved-context-v2.1.0-rc1
+      TRACEMEM_HOSTED_RERANK_ENABLED: approved-versioned-bailian-v2
+      TRACEMEM_SERVICE_STATE: /app/runtime/bailian-v2-service
+      TRACEMEM_SERVICE_EXPIRES_AT: '1793896200'
+      TRACEMEM_AUTH_TOKEN_FILE: /run/secrets/service_token
+      TRACEMEM_OPENAI_TOKEN_FILE: /run/secrets/openai_token
+      TRACEMEM_BAILIAN_TOKEN_FILE: /run/secrets/bailian_token
+      TRACEMEM_LEDGER_AUTHORITY_FILE: /run/config/ledger-authority.json
+      TRACEMEM_VERIFIED_PRICES_FILE: /run/config/verified-prices.json
+      TRACEMEM_RERANK_PRICES_FILE: /run/hosted-config/verified-rerank-prices.json
+      TRACEMEM_RERANK_CALL_LIMIT: '512'
+    volumes:
+      - /opt/tracemem-access-v1/runtime:/app/runtime
+      - /opt/tracemem-access-v1/runtime/official-v1:/app/runtime/official-v1:ro
+      - /opt/tracemem-access-v1/runtime/coding-v1:/app/runtime/coding-v1:ro
+      - /opt/tracemem-access-v1/runtime/bailian-v2-comparison:/app/runtime/bailian-v2-comparison:ro
+      - /opt/tracemem-access-v1/config:/run/config:ro
+      - ./config:/run/hosted-config:ro
+      - /opt/tracemem-access-v1/secrets/service_token:/run/secrets/service_token:ro
+      - /opt/tracemem-access-v1/secrets/openai_token:/run/secrets/openai_token:ro
+      - /opt/tracemem-access-v1/secrets/bailian_token:/run/secrets/bailian_token:ro
+    read_only: true
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2.0
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8769/health',timeout=12).read()"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 1m, max-file: '2'}
