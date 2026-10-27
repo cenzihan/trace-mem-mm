@@ -18,7 +18,7 @@ v4.3.0 negative-control failure remains recorded. Original accounting, model
 identity, failed/unknown receipts, source tags and service history are preserved;
 the fixed release tag does not move when deployment documentation changes.
 
-The [v4.4.0 coverage candidate](docs/mem0-coverage.md) partitions candidate images
+The [v4.4.1 coverage candidate](docs/mem0-coverage.md) partitions candidate images
 into bounded selection batches. It is not the deployed service, and has no
 official result. Its additional calls trade latency and connection exposure for
 visibility of candidate images beyond the first batch.

@@ -98,3 +98,13 @@ def create_coverage_app(environ=None):
     from .coverage_selection import CoverageServiceTransport
     return create_app(env,_system_type=Mem0CoverageSystem,
                       _transport_type=CoverageServiceTransport,_stop_at_chat_done=True)
+
+
+def create_consolidated_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_CONSOLIDATED_ENABLED')!='approved-native-mem0-consolidated':
+        raise ValueError('explicit consolidated candidate activation required')
+    from .mem0_consolidated import Mem0ConsolidatedSystem
+    from .consolidated_selection import ConsolidatingServiceTransport
+    return create_app(env,_system_type=Mem0ConsolidatedSystem,
+                      _transport_type=ConsolidatingServiceTransport,_stop_at_chat_done=True)
