@@ -14,7 +14,7 @@ from .protocol import ContractError,text_of,validate_search
 from .service_app import ServingSystem,ServiceApplication
 from .service_transport import ServiceTransport
 
-VERSION='tracemem-mm-bailian-v2.0.3'
+VERSION='tracemem-mm-bailian-v2.0.4'
 
 
 class BailianServingSystem(ServingSystem):

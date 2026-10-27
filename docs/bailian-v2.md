@@ -1,6 +1,6 @@
 # Hosted reranker candidate
 
-Current patch release: `tracemem-mm-bailian-v2.0.3`. The final format audit adds
+Current patch release: `tracemem-mm-bailian-v2.0.4`. The final format audit adds
 strict GPT source-card JSON Schema,20-message admission and empty-options
 compatibility. See the [itemized audit](official-format-audit.md) for wire checks,
 capacity limits and remaining verification boundaries. The first official Smoke
@@ -28,7 +28,7 @@ retry handling for429 and states that concurrency is an upper bound.
 Registered patch endpoints are `/v2.1/add`, `/v2.1/search` and `/v2.1/health`.
 The registry rejected a URL change after the first Smoke, then accepted a
 separate `tracemem-mm-bailian-v2.0.2` version using the existing URLs. The next
-patch keeps that registered address and is separately versioned as v2.0.3.
+patch keeps that registered address and is separately versioned as v2.0.4.
 `/v2.2` was the previous patch alias; current deployment identity is reported
 by health and must match the selected official version before submission.
 The old v2.0.1 job is terminal failed and must not be resumed against new code.
