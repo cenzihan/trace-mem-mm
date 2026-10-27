@@ -9,6 +9,7 @@ on:
       - codex/hosted-admission-queue
       - codex/hosted-auxiliary-metadata
       - codex/official-format-audit
+      - codex/receipt-dispatch-recovery
     paths:
       - .github/workflows/docker.yml
       - Dockerfile

@@ -49,7 +49,7 @@ class _Journal:
             raise ValueError('journal symlinks are not supported')
         with self.connect() as db:
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if tables and tables not in ({'operations', 'claims'}, {'operations', 'claims'} | self.extra_tables):
+            if tables and (not {'operations','claims'}.issubset(tables) or tables-{'operations','claims'}-self.extra_tables):
                 raise ValueError('wrong embedding journal database')
             db.execute('''CREATE TABLE IF NOT EXISTS operations(
                 fingerprint TEXT PRIMARY KEY, scope TEXT NOT NULL, manifest TEXT NOT NULL,

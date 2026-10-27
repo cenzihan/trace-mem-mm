@@ -12,7 +12,7 @@ import threading
 import uuid
 
 from .budget import BudgetLedger, VerifiedRate
-from .embedding_executor import _Journal, _ReceiptHTTP, _json
+from .embedding_executor import _Journal, _ReceiptHTTP, _json, EmbeddingExecutorBlocked
 from .provider_http import (BudgetedJSONTransport, NativeHTTPS, SHARED_LEDGER, ProviderFailure,
                             OPENAI_ENDPOINT, BAILIAN_BEIJING_ENDPOINT)
 from .providers import source_card_response_format
@@ -62,8 +62,35 @@ class ServiceBudgetedTransport(BudgetedJSONTransport):
             if not card['summary'].strip():raise ProviderFailure('invalid_contract')
 
 
+def acknowledged_failure(row, proof):
+    return (proof is not None and row['state']=='failed'
+        and row['receipt_policy']=='discarded_known_failure' and row['body'] is None
+        and row['redacted']==1 and row['status']==200 and not row['transport_completed']
+        and proof['attempt_id']==row['attempt_id'] and proof['body_sha']==row['body_sha'])
+
+
+def never_dispatched(row):
+    return (row['attempt_id'] is None and row['status'] is None and row['body'] is None
+        and row['body_sha'] is None and row['redacted'] is None and not row['transport_completed']
+        and row['run_path'] is None and row['run_ordinal'] is None)
+
+
 class _ServiceJournal(_Journal):
-    extra_tables = frozenset({'discarded_auxiliary_failures'})
+    extra_tables = frozenset({'discarded_auxiliary_failures','undispatched_retirements'})
+
+    def start(self, fingerprint):
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            current=db.execute('SELECT * FROM operations WHERE fingerprint=?',(fingerprint,)).fetchone()
+            if current is None or current['state']!='ready' or not never_dispatched(current):
+                raise EmbeddingExecutorBlocked('operation already attempted; no automatic replay')
+            for row in db.execute("SELECT * FROM operations WHERE scope=? AND state NOT IN ('ready','complete')",(current['scope'],)):
+                proof=db.execute('SELECT * FROM discarded_auxiliary_failures WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
+                retired=db.execute('SELECT 1 FROM undispatched_retirements WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
+                if acknowledged_failure(row,proof):continue
+                if row['state']=='abandoned_before_dispatch' and retired and never_dispatched(row):continue
+                raise EmbeddingExecutorBlocked('unresolved service operation blocks further dispatch')
+            db.execute("UPDATE operations SET state='inflight' WHERE fingerprint=?",(fingerprint,))
 
 
 class ServiceTransport:
@@ -105,6 +132,8 @@ class ServiceTransport:
                 fingerprint TEXT PRIMARY KEY, attempt_id TEXT UNIQUE NOT NULL,
                 body_sha TEXT NOT NULL, summary_sha TEXT NOT NULL,
                 normalized_sha TEXT NOT NULL, discarded_at TEXT NOT NULL)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS undispatched_retirements (
+                fingerprint TEXT PRIMARY KEY, retired_at TEXT NOT NULL)''')
         self.readers = readers
         self.lock = threading.Lock()
 
@@ -130,14 +159,11 @@ class ServiceTransport:
         with self.journal.connect() as db:
             rows = [dict(row) for row in db.execute('SELECT * FROM operations')]
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
+            retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
         for row in rows:
             proof = discarded.get(row['fingerprint'])
-            if row['state']=='failed' and proof is not None:
-                if (row['receipt_policy']!='discarded_known_failure' or row['body'] is not None
-                        or row['redacted']!=1 or row['status']!=200 or row['transport_completed']
-                        or proof['attempt_id']!=row['attempt_id'] or proof['body_sha']!=row['body_sha']):
-                    raise ValueError('invalid discarded failure receipt')
-                continue
+            if acknowledged_failure(row,proof):continue
+            if row['state']=='abandoned_before_dispatch' and row['fingerprint'] in retired and never_dispatched(row):continue
             if row['state'] != 'complete':
                 raise ValueError('unresolved model attempt blocks further calls; no replay')
             if (row['receipt_policy'] != 'usage_only' or row['body'] is not None
@@ -146,6 +172,18 @@ class ServiceTransport:
                 raise ValueError('invalid minimized receipt')
         if self.ledger.totals()['remaining_micro_cny'] < 5000000:
             raise ValueError('insufficient bounded budget for a complete admitted Add')
+
+    def retire_undispatched(self, fingerprint):
+        """Operator-only: preserve a prepared operation proven never sent to a model."""
+        with self.journal.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT * FROM operations WHERE fingerprint=?',(fingerprint,)).fetchone()
+            if row is None or row['state']!='ready' or not never_dispatched(row):
+                raise ValueError('only pristine prepared operations may be retired; never replay unknowns')
+            db.execute('INSERT INTO undispatched_retirements VALUES(?,?)',
+                       (fingerprint,datetime.now(timezone.utc).isoformat()))
+            db.execute("UPDATE operations SET state='abandoned_before_dispatch' WHERE fingerprint=?",(fingerprint,))
+        return {'fingerprint':fingerprint,'model_calls':0,'operation_preserved':True}
 
     def discard_known_auxiliary_failure(self, attempt_id, expected_body_sha):
         """Explicit operator acknowledgement only; never replay or resume an Add.

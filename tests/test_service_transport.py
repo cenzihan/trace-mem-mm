@@ -226,6 +226,43 @@ class DiscardedAuxiliaryFailureTests(unittest.TestCase):
         self.assertEqual(transport.journal.row(row['fingerprint'])['body'],row['body'])
         self.assertEqual(self.http.calls,1)
 
+    def test_acknowledged_failure_allows_new_dispatch_after_restart(self):
+        transport,row=self.legacy_failure()
+        transport.discard_known_auxiliary_failure(row['attempt_id'],row['body_sha'])
+        with transport.journal.connect() as db:db.execute('DROP TABLE undispatched_retirements')
+        restarted=self.make()
+        GPT4oMiniCards(restarted,structured_output=True).extract('Fresh independent synthetic source')
+        self.assertEqual(self.http.calls,2)
+        self.assertEqual(restarted.journal.row(row['fingerprint'])['state'],'failed')
+        restarted.ready()
+
+    def test_pristine_prepared_retirement_preserves_rows_and_allows_new_call(self):
+        transport,row=self.legacy_failure()
+        transport.discard_known_auxiliary_failure(row['attempt_id'],row['body_sha'])
+        transport.journal.install('never-sent','official-service-v1',{'keys':['never-sent'],'model':'gpt-4o-mini'})
+        with self.assertRaises(ValueError):transport.ready()
+        proof=transport.retire_undispatched('never-sent');self.assertEqual(proof['model_calls'],0)
+        GPT4oMiniCards(self.make(),structured_output=True).extract('New independent source')
+        self.assertEqual(self.http.calls,2)
+        self.assertEqual(transport.journal.row('never-sent')['state'],'abandoned_before_dispatch')
+        with self.assertRaises(ValueError):transport.retire_undispatched('never-sent')
+
+    def test_retirement_never_accepts_started_or_unknown_operation(self):
+        transport=self.make();transport.journal.install('started','official-service-v1',{'keys':['started']})
+        transport.journal.start('started')
+        with self.assertRaises(ValueError):transport.retire_undispatched('started')
+        transport.journal.unknown('started')
+        with self.assertRaises(ValueError):transport.retire_undispatched('started')
+        with self.assertRaises(ValueError):transport.ready()
+        self.assertEqual(self.http.calls,0)
+
+    def test_corrupt_acknowledgement_blocks_dispatch_atomically(self):
+        transport,row=self.legacy_failure();transport.discard_known_auxiliary_failure(row['attempt_id'],row['body_sha'])
+        with transport.journal.connect() as db:db.execute("UPDATE discarded_auxiliary_failures SET body_sha='bad'")
+        transport.journal.install('fresh','official-service-v1',{'keys':['fresh']})
+        with self.assertRaises(RuntimeError):transport.journal.start('fresh')
+        self.assertEqual(transport.journal.row('fresh')['state'],'ready');self.assertEqual(self.http.calls,1)
+
     def test_invalid_summary_cannot_be_acknowledged(self):
         transport,row=self.legacy_failure(summary=None)
         with self.assertRaises(ProviderFailure):transport.discard_known_auxiliary_failure(row['attempt_id'],row['body_sha'])

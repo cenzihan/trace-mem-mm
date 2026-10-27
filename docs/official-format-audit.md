@@ -1,10 +1,16 @@
-# Official interface audit — v2.0.3
+# Official interface audit — v2.0.4
 
 Checked 2026-10-27 against the [AML API Guide](https://agentmemoryleaderboard.ai/api-guide)
 and [error/quota documentation](https://agentmemoryleaderboard.ai/docs). This is a
 format and lifecycle audit, not a claim that the official Smoke has passed.
 
-Validation:657 offline checks passed, including11 new wire-format regressions.
+The preceding v2.0.3 passed657 offline checks including11 wire-format regressions.
+Its official run revealed a separate dispatch recovery defect: the health gate
+accepted an audited historical failure while the journal dispatch gate still
+blocked it. v2.0.4 applies the same proof validation to both gates and adds four
+recovery regressions including a fresh dispatch after restart. A pristine prepared
+operation with no attempt or receipt may be explicitly retired without replay;
+failed/unknown calls and financial history remain intact.
 No provider calls were made by these tests. Docker CI and the next official
 Smoke remain separate deployment/availability checks.
 
