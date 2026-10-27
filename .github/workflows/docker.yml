@@ -10,6 +10,7 @@ on:
       - codex/hosted-auxiliary-metadata
       - codex/official-format-audit
       - codex/receipt-dispatch-recovery
+      - codex/evidence-context-candidate
     paths:
       - .github/workflows/docker.yml
       - Dockerfile
@@ -69,7 +70,7 @@ jobs:
 
       - name: Verify embedding and hosted-rerank contracts without providers
         run: |
-          for pattern in 'test_embedding_smoke*.py' 'test_granted_embedding_smoke.py' 'test_bailian_rerank.py' 'test_online_candidate.py' 'test_service_transport.py' 'test_service_queue.py' 'test_official_formats.py' 'test_budget.py' 'test_provider_http.py'; do
+          for pattern in 'test_embedding_smoke*.py' 'test_granted_embedding_smoke.py' 'test_bailian_rerank.py' 'test_online_candidate.py' 'test_context_candidate.py' 'test_context_app.py' 'test_service_transport.py' 'test_service_queue.py' 'test_official_formats.py' 'test_budget.py' 'test_provider_http.py'; do
             docker run --rm --network none --read-only --cap-drop ALL \
               --security-opt no-new-privileges:true --tmpfs /tmp:mode=1777 \
               --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" \

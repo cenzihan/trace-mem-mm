@@ -34,6 +34,12 @@ class CombinedReadiness:
 
 
 def create_app(environ=None):
+    return _create_app(environ, store_type=BailianServingSystem, version=VERSION,
+                       profile='hosted_bailian_v2', release_stage='versioned-hosted-candidate')
+
+
+def _create_app(environ, *, store_type, version, profile, release_stage):
+    """Shared accounting/lease factory; callers select a fixed reviewed store."""
     env=os.environ if environ is None else environ
     if env.get('TRACEMEM_HOSTED_RERANK_ENABLED')!='approved-versioned-bailian-v2':
         raise ValueError('explicit new hosted model/version activation required')
@@ -49,13 +55,13 @@ def create_app(environ=None):
         call_limit=int(env['TRACEMEM_RERANK_CALL_LIMIT']))
     expires=int(env['TRACEMEM_SERVICE_EXPIRES_AT'])
     if not time.time()<expires<=time.time()+28*86400:raise ValueError('explicit hosted service lease required')
-    store=BailianServingSystem(state/'memory.sqlite',
+    store=store_type(state/'memory.sqlite',
         embedding=TextEmbeddingV4(BAILIAN_BEIJING_ENDPOINT,base,dimensions=256),
         card_adapter=VerifiedQuoteCards(base,image_detail='low',structured_output=True),
         scoring_adapter=BailianScorer(rerank,env.get('TRACEMEM_RERANK_ENDPOINT',BAILIAN_RERANK_ENDPOINT)))
     capabilities=store.capabilities
-    store.capabilities=lambda:dict(capabilities(),version=VERSION,deployment_profile='hosted_bailian_v2',
-        release_stage='versioned-hosted-candidate',concurrency=1,admission_capacity=16,
+    store.capabilities=lambda:dict(capabilities(),version=version,deployment_profile=profile,
+        release_stage=release_stage,concurrency=1,admission_capacity=16,
         queue_wait_seconds=30,receipt_content_logging=False,
         source_card_format='strict-json-schema',max_add_messages=20,
         reranker_weights_verified=False,reranker_source_text_only=True,
