@@ -45,3 +45,11 @@ def create_evidence_app(environ=None):
     from .http2_transport import HTTP2AcademicHTTPS
     return create_app(env,_system_type=Mem0EvidenceSystem,
                       _transport_type=Mem0EvidenceTransport,_http_type=HTTP2AcademicHTTPS)
+
+
+def create_raw_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_RAW_ENABLED')!='approved-native-mem0-raw':
+        raise ValueError('explicit raw-memory ablation activation required')
+    from .mem0_raw import Mem0RawSystem,Mem0RawTransport
+    return create_app(env,_system_type=Mem0RawSystem,_transport_type=Mem0RawTransport)
