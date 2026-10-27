@@ -14,7 +14,7 @@ from .protocol import ContractError,text_of,validate_search
 from .service_app import ServingSystem,ServiceApplication
 from .service_transport import ServiceTransport
 
-VERSION='tracemem-mm-bailian-v2.0.0'
+VERSION='tracemem-mm-bailian-v2.0.1'
 
 
 class BailianServingSystem(ServingSystem):
@@ -54,9 +54,11 @@ def create_app(environ=None):
         scoring_adapter=BailianScorer(rerank,env.get('TRACEMEM_RERANK_ENDPOINT',BAILIAN_RERANK_ENDPOINT)))
     capabilities=store.capabilities
     store.capabilities=lambda:dict(capabilities(),version=VERSION,deployment_profile='hosted_bailian_v2',
-        release_stage='versioned-hosted-candidate',concurrency=1,receipt_content_logging=False,
+        release_stage='versioned-hosted-candidate',concurrency=1,admission_capacity=16,
+        queue_wait_seconds=30,receipt_content_logging=False,
         reranker_weights_verified=False,reranker_source_text_only=True,
         readiness_scope='local-config-budget-and-journals; upstream not probed')
     readiness=CombinedReadiness(base,rerank)
     return ServiceApplication(store,readiness,read_service_token(env['TRACEMEM_AUTH_TOKEN_FILE']),
-                              scorer_health=rerank.ready,expires_at=expires)
+                              scorer_health=rerank.ready,expires_at=expires,
+                              admission_capacity=16,queue_wait_seconds=30)
