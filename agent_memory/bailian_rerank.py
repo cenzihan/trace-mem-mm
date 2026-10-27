@@ -155,6 +155,7 @@ class HostedRerankTransport(ServiceTransport):
             except BaseException:
                 with self.journal.connect() as db:
                     db.execute("UPDATE operations SET state=CASE WHEN state='received' THEN 'failed' ELSE 'unknown' END WHERE fingerprint=?",(fingerprint,))
+                self.record_transport_failure(fingerprint,receipt_http,payload)
                 raise
             with self.journal.connect() as db:
                 row=db.execute('SELECT * FROM operations WHERE fingerprint=?',(fingerprint,)).fetchone()

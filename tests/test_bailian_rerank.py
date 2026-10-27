@@ -3,14 +3,16 @@ from datetime import datetime,timezone,timedelta
 import io
 import json
 from pathlib import Path
+import ssl
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from agent_memory.bailian_rerank import (MODEL,MAX_INPUT,payloads,BailianScorer,
     RerankJSONTransport,HostedRerankTransport)
 from agent_memory.bailian_app import BailianServingSystem,CombinedReadiness,create_app
 from agent_memory.budget import BudgetLedger
-from agent_memory.provider_http import HTTPReply,ProviderFailure,BAILIAN_RERANK_ENDPOINT,validate_endpoint
+from agent_memory.provider_http import HTTPReply,ProviderFailure,NativeHTTPS,BAILIAN_RERANK_ENDPOINT,validate_endpoint
 from agent_memory.service_transport import history_digest
 from agent_memory.online_candidate import OnlineDenseRerankSystem
 
@@ -88,6 +90,105 @@ class HostedTests(unittest.TestCase):
         self.http.failure=None
         with self.assertRaisesRegex(ValueError,'unresolved'):self.call()
         with self.ledger.connect() as db:self.assertEqual(db.execute('SELECT status,accounted FROM attempts').fetchone(),('uncertain',60000))
+        self.assertEqual(len(self.http.calls),1)
+
+    def test_native_tls_failure_phase_survives_hosted_wrapper(self):
+        # Real NativeHTTPS state transitions, with only the socket replaced.
+        # A TLS exception can occur before OR after the POST starts.
+        for stage in ('tls_setup','post_started','response_headers','response_body'):
+            with self.subTest(stage=stage):
+                fixture=HostedTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+                events=[]
+                class SyntheticNative(NativeHTTPS):is_fake_http=True
+                class Connection:
+                    status=200
+                    def __init__(self,*args,**kwargs):self.sock=self
+                    def fail(self,where):
+                        if stage==where:raise ssl.SSLError('SECRET_FAILURE_MESSAGE')
+                    def connect(self):events.append('connect');self.fail('tls_setup')
+                    def settimeout(self,*args):pass
+                    def request(self,*args,**kwargs):events.append('post');self.fail('post_started')
+                    def getresponse(self):self.fail('response_headers');return self
+                    def getheader(self,*args):return ''
+                    def read1(self,*args):self.fail('response_body');return b''
+                    def close(self):pass
+                fixture.http=SyntheticNative();transport=fixture.make()
+                with patch('agent_memory.provider_http.http.client.HTTPSConnection',Connection):
+                    with self.assertRaises(ProviderFailure) as caught:fixture.call(transport)
+                    self.assertEqual(caught.exception.category,'tls_error')
+                    with self.assertRaises(ValueError):fixture.call(transport)
+                self.assertEqual(events.count('post'),0 if stage=='tls_setup' else 1)
+                text=(fixture.p/'receipts/transport-failure-phases.jsonl').read_text()
+                row=json.loads(text);self.assertEqual(row['phase'],stage)
+                self.assertEqual(row['transport_kind'],'SSLError')
+                self.assertEqual(row['received_bytes'],0)
+                self.assertNotIn('SECRET_FAILURE_MESSAGE',text)
+                self.assertNotIn('synthetic query',text);self.assertNotIn('source a',text)
+                with fixture.ledger.connect() as db:
+                    self.assertEqual(db.execute('SELECT status,reserved,accounted FROM attempts').fetchone(),('uncertain',60000,60000))
+
+    def test_missing_failure_phase_is_not_inferred_from_tls_category(self):
+        self.http.failure=ssl.SSLError('SECRET_TLS_URL_OR_BODY')
+        with self.assertRaises(ProviderFailure):self.call()
+        text=(self.p/'receipts/transport-failure-phases.jsonl').read_text();row=json.loads(text)
+        self.assertIsNone(row['phase']);self.assertIsNone(row['transport_kind'])
+        self.assertNotIn('SECRET_TLS_URL_OR_BODY',text)
+        self.assertNotIn('received_bytes',row);self.assertGreater(row['request_bytes'],0)
+
+    def test_failure_diagnostics_drop_unapproved_or_wrongly_typed_values(self):
+        exc=ProviderFailure('network_error');exc.phase=['SECRET_PHASE'];exc.transport_kind={'secret':'value'}
+        exc.response_diagnostics={'received_bytes':True,'response_status':999999,'http2':1,
+            'sse_done_frame':'false','sse_complete':False,'body':'SECRET_BODY','url':'SECRET_URL'}
+        self.http.failure=exc
+        with self.assertRaises(ProviderFailure):self.call()
+        text=(self.p/'receipts/transport-failure-phases.jsonl').read_text();row=json.loads(text)
+        self.assertEqual(set(row),{'at','fingerprint','phase','transport_kind','request_bytes','streaming','sse_complete'})
+        self.assertIsNone(row['phase']);self.assertIsNone(row['transport_kind'])
+        self.assertNotIn('SECRET',text);self.assertFalse(row['sse_complete'])
+
+    def test_diagnostic_is_append_only_and_restart_does_not_backfill(self):
+        self.http.failure=ProviderFailure('network_error',phase='response_headers')
+        with self.assertRaises(ProviderFailure):self.call()
+        path=self.p/'receipts/transport-failure-phases.jsonl';before=path.read_bytes()
+        self.make()
+        with self.assertRaises(ValueError):self.call()
+        self.assertEqual(path.read_bytes(),before);self.assertEqual(len(self.http.calls),1)
+        path.unlink()  # A missing diagnostic never makes the original call replayable.
+        self.make();self.assertFalse(path.exists())
+        with self.assertRaises(ValueError):self.call()
+        self.assertFalse(path.exists());self.assertEqual(len(self.http.calls),1)
+
+    def test_success_does_not_create_failure_diagnostics(self):
+        self.call();self.assertFalse((self.p/'receipts/transport-failure-phases.jsonl').exists())
+
+    def test_known_response_failure_stays_failed_not_unknown(self):
+        self.http.mutate=lambda v:dict(v,output={'results':[{'index':0,'relevance_score':.5}]*2})
+        transport=self.make()
+        with self.assertRaises(ProviderFailure):self.call(transport)
+        with transport.journal.connect() as db:
+            row=db.execute('SELECT state,status,body FROM operations').fetchone()
+        self.assertEqual(tuple(row[:2]),('failed',200));self.assertTrue(row[2])
+        diagnostic=json.loads((self.p/'receipts/transport-failure-phases.jsonl').read_text())
+        self.assertIsNone(diagnostic['phase'])
+        with self.assertRaises(ValueError):self.call(transport)
+        self.assertEqual(len(self.http.calls),1)
+
+    def test_full_diagnostic_sink_keeps_failure_and_prevents_replay(self):
+        transport=self.make();path=self.p/'receipts/transport-failure-phases.jsonl'
+        before=b'x'*(256*1024);path.write_bytes(before)
+        self.http.failure=ProviderFailure('timeout',phase='deadline_unknown')
+        with self.assertRaises(ProviderFailure) as caught:self.call(transport)
+        self.assertEqual(caught.exception.category,'timeout');self.assertEqual(path.read_bytes(),before)
+        with self.assertRaises(ValueError):self.call(transport)
+        self.assertEqual(len(self.http.calls),1)
+
+    def test_unwritable_diagnostic_sink_cannot_turn_failure_into_success(self):
+        transport=self.make();(self.p/'receipts/transport-failure-phases.jsonl').mkdir()
+        self.http.failure=ProviderFailure('network_error',phase='response_body')
+        with self.assertRaises(ProviderFailure) as caught:self.call(transport)
+        self.assertEqual(caught.exception.category,'network_error')
+        with transport.journal.connect() as db:self.assertEqual(db.execute('SELECT state FROM operations').fetchone()[0],'unknown')
+        with self.assertRaises(ValueError):self.call(transport)
         self.assertEqual(len(self.http.calls),1)
 
     def test_duplicate_indices_fail_and_stop(self):

@@ -68,3 +68,13 @@ def create_visual_app(environ=None):
     def make_store(*args,**kwargs):
         return Mem0VisualSystem(*args,scoring_adapter=VisualScorer(rerank),**kwargs)
     return create_app(env,_system_type=make_store,_transport_type=Mem0RawTransport)
+
+
+def create_joint_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_JOINT_ENABLED')!='approved-native-mem0-joint':
+        raise ValueError('explicit joint-selection candidate activation required')
+    from .mem0_joint import Mem0JointSystem
+    from .joint_selection import SelectionServiceTransport
+    return create_app(env,_system_type=Mem0JointSystem,
+                      _transport_type=SelectionServiceTransport,_stop_at_chat_done=True)
