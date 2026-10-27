@@ -1,5 +1,12 @@
 # TraceMem-MM
 
+The [hosted reranker v2 candidate](docs/bailian-v2.md) is deployed at
+[/v2/health](https://45.192.104.173/v2/health), using Bailian `qwen3-vl-rerank`
+without the private GPU tunnel. The matched74-question regression improved
+Recall@20 from90.52% to92.52%; real GPT/embedding/rerank deployment smoke passed.
+This is a different model identity and an engineering result, not an official
+score. New official version binding awaits the Eval Key; submitted v1 stays frozen.
+
 **Current admission candidate: `tracemem-mm-online-v1.0.0`.** The production profile and operational bounds are documented in [official-service-v1](docs/official-service-v1.md). It uses the exact validated GPT / embedding / Qwen pipeline, one migrated original budget, private GPU supervision, TLS, and automatic evaluation-data deletion. 616 offline checks pass. Historical milestones below describe earlier states; official admission/score is not implied by these checks.
 
 Public endpoint: [health](https://45.192.104.173/health); authenticated Add/Search

@@ -23,6 +23,7 @@ from .providers import ProviderBlocked
 
 OPENAI_ENDPOINT='https://api.openai.com/v1/chat/completions'
 BAILIAN_BEIJING_ENDPOINT='https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
+BAILIAN_RERANK_ENDPOINT='https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank'
 SHARED_LEDGER=Path(__file__).resolve().parent.parent/'runtime/development-budget.sqlite'
 
 
@@ -62,6 +63,10 @@ def validate_endpoint(model,endpoint):
         raise ValueError('official HTTPS endpoint required')
     if model=='gpt-4o-mini' and endpoint==OPENAI_ENDPOINT:return
     if model=='text-embedding-v4' and endpoint==BAILIAN_BEIJING_ENDPOINT:return
+    if model=='qwen3-vl-rerank' and endpoint==BAILIAN_RERANK_ENDPOINT:return
+    if (model=='qwen3-vl-rerank' and parsed.hostname and
+        re.fullmatch(r'[a-zA-Z0-9-]+\.cn-beijing\.maas\.aliyuncs\.com',parsed.hostname) and
+        parsed.path=='/api/v1/services/rerank/text-rerank/text-rerank'):return
     if (model=='text-embedding-v4' and parsed.hostname and
         re.fullmatch(r'[a-zA-Z0-9-]+\.cn-beijing\.maas\.aliyuncs\.com',parsed.hostname) and
         parsed.path=='/compatible-mode/v1/embeddings'):return
@@ -169,6 +174,8 @@ class BudgetedJSONTransport:
     def _bounds(self,payload):
         if not isinstance(payload,dict) or payload.get('model')!=self.model:
             raise ValueError('Academic model name mismatch')
+        if self.model not in ('gpt-4o-mini','text-embedding-v4'):
+            raise ValueError('a dedicated reviewed transport is required for this model')
         if self.model=='text-embedding-v4':
             if set(payload)-{'model','input','dimensions','encoding_format'}:raise ValueError('unsupported embedding request parameter')
             texts=payload.get('input')
@@ -237,6 +244,11 @@ class BudgetedJSONTransport:
             if not isinstance(card,dict) or not isinstance(card.get('summary'),str) or not isinstance(card.get('evidence_quotes'),list) or any(not isinstance(q,str) for q in card['evidence_quotes']):
                 raise ProviderFailure('invalid_contract')
 
+    def _response_model(self, data):
+        allowed={self.model} if self.model=='text-embedding-v4' else {'gpt-4o-mini','gpt-4o-mini-2024-07-18'}
+        if data.get('model') not in allowed:raise ProviderFailure('model_mismatch')
+        return data['model']
+
     def __call__(self,endpoint,payload):
         if endpoint!=self.endpoint:raise ValueError('endpoint changed after configuration')
         validate_endpoint(self.model,endpoint)
@@ -287,9 +299,7 @@ class BudgetedJSONTransport:
                 except (ValueError,UnicodeError):raise ProviderFailure('invalid_json') from None
                 if not isinstance(data,dict):raise ProviderFailure('invalid_contract')
                 usage=self._usage(data)
-                allowed={self.model} if self.model=='text-embedding-v4' else {'gpt-4o-mini','gpt-4o-mini-2024-07-18'}
-                if data.get('model') not in allowed:raise ProviderFailure('model_mismatch')
-                returned=data['model'];self._contract(data,payload)
+                returned=self._response_model(data);self._contract(data,payload)
                 category='success'
             except ProviderFailure as exc:category=exc.category
             except TimeoutError:category='timeout'
