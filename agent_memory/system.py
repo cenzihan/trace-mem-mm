@@ -31,6 +31,8 @@ class RetrievalConfig:
 
 
 class AgentMemorySystem(MemoryStore):
+    model_add_message_limit = 16
+
     def __init__(self, path, retrieval=None, embedding=None, card_adapter=None, scoring_adapter=None):
         super().__init__(path)
         self.retrieval = retrieval or RetrievalConfig()
@@ -154,8 +156,8 @@ class AgentMemorySystem(MemoryStore):
             db.execute('BEGIN')
             if self._request_ready(db,payload,digest):return self._echo(payload)
             self._check_dense_scope(db,payload)
-        if self.card_adapter is not None and len(payload['messages'])>16:
-            raise ContractError('local model-assisted Add capacity is 16 messages',413)
+        if self.card_adapter is not None and len(payload['messages'])>self.model_add_message_limit:
+            raise ContractError(f'local model-assisted Add capacity is {self.model_add_message_limit} messages',413)
         if self.retrieval.dense and len(payload['messages'])>100:
             raise ContractError('local dense Add capacity is 100 messages',413)
         # Validate every explicit timestamp before claiming or charging any model work.

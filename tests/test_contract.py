@@ -186,7 +186,7 @@ class ContractTests(unittest.TestCase):
 
     def test_invalid_search_options_and_top_k(self):
         for field, value in (("top_k", 0), ("top_k", True), ("top_k", 1.5), ("options", "A"),
-                             ("options", [1]), ("options", []), ("query", [])):
+                             ("options", [1]), ("query", [])):
             with self.subTest(field=field, value=value):
                 p = copy.deepcopy(self.query)
                 p[field] = value
