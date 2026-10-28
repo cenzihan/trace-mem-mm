@@ -1,9 +1,12 @@
-import hashlib,json
-from tests.test_service_transport import ServiceTransportTests
+import hashlib,json,unittest
+from tests import test_service_transport as fixtures
 from agent_memory.provider_http import ProviderFailure
 from agent_memory.operator_recovery import row_digest
 
-class OperatorRecoveryTests(ServiceTransportTests):
+class OperatorRecoveryTests(unittest.TestCase):
+    setUp=fixtures.ServiceTransportTests.setUp
+    make=fixtures.ServiceTransportTests.make
+    call=fixtures.ServiceTransportTests.call
     def prepare(self):
         t=self.make();self.http.failure=True
         with self.assertRaises(ProviderFailure):self.call(t)
@@ -49,3 +52,16 @@ class OperatorRecoveryTests(ServiceTransportTests):
         t,r,_=self.prepare();t.journal.install('test-ready',t.receipt_scope,{'keys':['test-ready']})
         t.operator_recovery.path.unlink()
         with self.assertRaises(Exception):t.journal.start('test-ready')
+    def test_transaction_rejects_second_inflight_operation(self):
+        t,_,_=self.prepare()
+        for key in ('first','second'):t.journal.install(key,t.receipt_scope,{'keys':[key]})
+        t.journal.start('first')
+        with self.assertRaises(Exception):t.journal.start('second')
+        with self.assertRaises(ValueError):t.ready()
+        self.assertEqual(t.journal.row('second')['state'],'ready')
+    def test_different_unknown_is_not_covered_by_old_proof(self):
+        t,_,_=self.prepare();t.journal.install('other',t.receipt_scope,{'keys':['other']})
+        with t.journal.connect() as db:db.execute("UPDATE operations SET state='unknown' WHERE fingerprint='other'")
+        with self.assertRaises(ValueError):t.ready()
+        t.journal.install('new',t.receipt_scope,{'keys':['new']})
+        with self.assertRaises(Exception):t.journal.start('new')
