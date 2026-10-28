@@ -18,6 +18,7 @@ from .providers import TextEmbeddingV4
 from .protocol import ContractError, content_parts, text_of, validate_add, validate_search
 from .cards import derive
 from .service_transport import ServiceTransport
+from .readiness_error import ReadinessFailure
 
 VERSION = 'tracemem-mm-online-v1.0.0'
 
@@ -77,6 +78,8 @@ class ServiceApplication(Application):
             return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
         if path == '/health' and environ.get('REQUEST_METHOD') == 'GET':
             try:self.transport.ready();self.scorer_health()
+            except ReadinessFailure as exc:
+                return self.reply(start_response,'503 Service Unavailable','readiness check failed',[('X-TraceMem-Readiness',exc.code)])
             except Exception:return self.reply(start_response,'503 Service Unavailable','readiness check failed')
         if path in ('/add','/search') and self.authorized(environ):
             if not self.admissions.acquire(blocking=False):
@@ -89,6 +92,8 @@ class ServiceApplication(Application):
                     if self.expires_at is not None and time.time() >= self.expires_at:
                         return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
                     try:self.transport.ready()
+                    except ReadinessFailure as exc:
+                        return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention',[('X-TraceMem-Readiness',exc.code)])
                     except Exception:return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
                     return super().__call__(environ,start_response)
                 finally:self.active.release()
