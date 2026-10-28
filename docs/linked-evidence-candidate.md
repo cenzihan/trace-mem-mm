@@ -1,6 +1,6 @@
 # Linked evidence candidate
 
-`tracemem-mm-linked-v4.5.1-rc1` is an unsubmitted candidate. An independent
+`tracemem-mm-linked-v4.5.2-rc1` is an unsubmitted candidate. An independent
 control for its predecessor retrieved both needed sources into the candidate
 pool but returned only one after model selection. That observation identifies
 a selection-stage omission in that control, not the cause of any official score.
@@ -8,8 +8,12 @@ a selection-stage omission in that control, not the cause of any official score.
 The new selector asks the same approved model for source witnesses, direct
 evidence roots and explicit prerequisite indices. The service returns the
 bounded dependency closure, including prerequisites from other Add sessions.
-It rejects missing node witnesses, cycles, duplicate indices, unreachable
-entries and more than eight sources. Text witnesses must occur in the provided
+It rejects missing node witnesses, cycles, duplicate indices and more than eight
+sources. All entries are validated, but valid entries outside the roots' dependency
+closure are omitted from retrieval. The earlier v4.5.1 control exposed a complete
+HTTP200 response with an unused downstream entry that its stricter validator
+rejected. The new behavior does not replay or reclassify that failed request.
+Text witnesses must occur in the provided
 source prefix. Image witnesses require an attached preview. These checks prove
 source attribution and graph consistency, not semantic truth or completeness:
 the model can still omit a necessary edge or select unrelated evidence.

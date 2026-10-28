@@ -58,12 +58,24 @@ class LinkedContractTests(unittest.TestCase):
             v=copy.deepcopy(self.value);v['evidence'][1]['requires']=deps
             with self.subTest(deps=deps),self.assertRaises(ValueError):linked_indices(v,self.rows)
 
-    def test_unreachable_source_rejected_not_fallback_tail(self):
+    def test_unreachable_valid_source_pruned_not_fallback_tail(self):
         self.value['evidence'].append(node(3,'boat'))
+        self.assertEqual(linked_indices(self.value,self.rows),[1,0])
+
+    def test_empty_roots_with_valid_sources_stays_empty(self):
+        self.value['roots']=[]
+        self.assertEqual(linked_indices(self.value,self.rows),[])
+
+    def test_unused_downstream_entry_does_not_invalidate_direct_root(self):
+        v={'roots':[0],'evidence':[node(0,'Slate'),node(1,'Fern',[0])]}
+        self.assertEqual(linked_indices(v,self.rows),[0])
+
+    def test_unused_cycle_still_rejected(self):
+        self.value['evidence'].append(node(3,'boat',[3]))
         with self.assertRaises(ValueError):linked_indices(self.value,self.rows)
 
-    def test_empty_roots_with_sources_rejected(self):
-        self.value['roots']=[]
+    def test_unused_fabricated_quote_still_rejected(self):
+        self.value['evidence'].append(node(3,'invented quote'))
         with self.assertRaises(ValueError):linked_indices(self.value,self.rows)
 
     def test_empty_selection_is_valid(self):

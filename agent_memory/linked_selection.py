@@ -9,13 +9,16 @@ from .mem0_options import Mem0OptionsSystem
 from .protocol import ContractError
 from .provider_http import OPENAI_ENDPOINT, ProviderFailure
 
-VERSION = 'tracemem-mm-linked-v4.5.1-rc1'
+VERSION = 'tracemem-mm-linked-v4.5.2-rc1'
 SYSTEM = (
     'Retrieve original sources that together support the ORIGINAL QUERY. Return only '
     'JSON {"roots":[1],"evidence":[{"index":1,"kind":"text","witness":"exact source '
     'quote","requires":[0]},{"index":0,"kind":"text","witness":"exact source '
     'quote","requires":[]}]}. This is a schema example, not a required selection. '
     'roots are the candidate indices most directly bearing on the requested property. '
+    'A root must provide evidence about the requested property or event, not merely '
+    'mention the subject. If a property is recorded only for a different entity and '
+    'no evidence links it to the queried entity, return empty; do not invent a link. '
     'For EACH root, inspect whether interpreting that source for the queried subject '
     'depends on another source: identity or alias, ownership, event continuity, an '
     'earlier state, a correction, or a comparison. Put those prerequisite source '
@@ -25,8 +28,8 @@ SYSTEM = (
     'needed evidence. Mere shared words are not an identity link. Include both '
     'sides of a necessary comparison or documented correction; do not invent links. '
     'Use at most eight unique sources in total. Each source has exactly one evidence '
-    'entry. Dependencies must form an acyclic graph, all entries must be reachable '
-    'from roots, and every requires index must have an entry. A direct source may '
+    'entry. Dependencies must form an acyclic graph and every requires index must '
+    'have an entry. Entries outside the root dependency closure are not returned. A direct source may '
     'have requires=[]. Return {"roots":[],"evidence":[]} if no source supports the '
     'original queried subject/event. Do not select unrelated sources to force a choice. '
     'A text witness is a nonempty exact substring of THAT source text_prefix, at most '
@@ -106,8 +109,11 @@ def linked_indices(value, rows):
         active.remove(index)
         visited.add(index)
 
+    # Validate the entire graph, including unused entries. Unused valid nodes are
+    # not a response-contract failure and are never a fallback retrieval tail.
+    for index in nodes:visit(index)
+    order.clear(); visited.clear(); active.clear()
     for root in roots:visit(root)
-    if visited != set(nodes):raise ValueError('unreachable evidence')
     return order
 
 
