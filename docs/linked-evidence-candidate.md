@@ -5,6 +5,13 @@ control for its predecessor retrieved both needed sources into the candidate
 pool but returned only one after model selection. That observation identifies
 a selection-stage omission in that control, not the cause of any official score.
 
+The v4.5.2 candidate passed 904 offline checks and native-container CI. Its first
+new real independent qualification stopped during Add: three embedding requests
+succeeded, then a fourth lost the connection while awaiting response headers.
+No Search or GPT selection ran, so quality is still unverified. The input and
+finite plan were closed; the unknown receipt and full reserve remain preserved.
+This is not an algorithm zero score and does not identify a transport root cause.
+
 The new selector asks the same approved model for source witnesses, direct
 evidence roots and explicit prerequisite indices. The service returns the
 bounded dependency closure, including prerequisites from other Add sessions.
