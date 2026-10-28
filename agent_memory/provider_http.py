@@ -102,8 +102,19 @@ class NativeHTTPS:
     def exchange(self,endpoint,body,headers,timeout,max_response_bytes):
         if not self._slot.acquire(blocking=False):raise ProviderFailure('network_error')
         result=queue.Queue(maxsize=1);cancel=threading.Event();deadline=time.monotonic()+timeout
+        # Only bounded scalars cross the worker boundary. A deadline snapshot is
+        # the last observed phase, not proof of delivery or a usable response.
+        progress_lock=threading.Lock()
+        progress={'phase':'deadline_unknown','received_bytes':0,'response_status':None,
+                  'sse_done_frame':False,'sse_complete':False}
+        def publish(phase,size,status,stream):
+            with progress_lock:
+                progress.update(phase=phase,received_bytes=size,response_status=status,
+                    sse_done_frame=bool(stream and stream.done_frame),
+                    sse_complete=bool(stream and stream.complete))
         def worker():
             conn=None;phase='tls_setup';size=0;response_status=None;chat_stream=None
+            publish(phase,size,response_status,chat_stream)
             try:
                 parsed=urlsplit(endpoint)
                 for setup in range(self.handshake_attempts):
@@ -121,8 +132,10 @@ class NativeHTTPS:
                 if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
                 conn.sock.settimeout(max(.001,deadline-time.monotonic()))
                 phase='post_started'
+                publish(phase,size,response_status,chat_stream)
                 conn.request('POST',parsed.path,body=body,headers=headers)
                 phase='response_headers'
+                publish(phase,size,response_status,chat_stream)
                 response=conn.getresponse();chunks=[];response_status=response.status
                 if (self.stop_at_chat_done and endpoint==OPENAI_ENDPOINT and response.status==200
                     and response.getheader('Content-Type','').split(';')[0].strip().lower()=='text/event-stream'):
@@ -132,17 +145,22 @@ class NativeHTTPS:
                         from .chat_stream import CompleteChatStream
                         chat_stream=CompleteChatStream()
                 phase='response_body'
+                publish(phase,size,response_status,chat_stream)
                 while True:
                     if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
                     if conn.sock:conn.sock.settimeout(max(.001,deadline-time.monotonic()))
                     chunk=response.read1(min(65536,max_response_bytes+1-size))
                     if not chunk:break
                     chunks.append(chunk);size+=len(chunk)
+                    publish(phase,size,response_status,chat_stream)
                     if size>max_response_bytes:raise ProviderFailure('response_limit')
                     # Each request owns and closes its connection. Once the full
                     # application stream validates, waiting for HTTP EOF adds no
                     # evidence and can turn a completed response into a failure.
-                    if chat_stream is not None and chat_stream.feed(chunk):break
+                    if chat_stream is not None:
+                        complete=chat_stream.feed(chunk)
+                        publish(phase,size,response_status,chat_stream)
+                        if complete:break
                 value=HTTPReply(response.status,b''.join(chunks),{'retry-after':response.getheader('Retry-After',''),
                     'content-type':response.getheader('Content-Type','')})
             except ProviderFailure as exc:value=exc
@@ -164,7 +182,12 @@ class NativeHTTPS:
         thread=threading.Thread(target=worker,daemon=True);thread.start()
         try:value=result.get(timeout=timeout)
         except queue.Empty:
-            cancel.set();raise ProviderFailure('timeout',phase='deadline_unknown') from None
+            cancel.set()
+            with progress_lock:snapshot=dict(progress)
+            error=ProviderFailure('timeout',phase=snapshot.pop('phase'))
+            error.transport_kind='TimeoutError'
+            error.response_diagnostics=snapshot
+            raise error from None
         if isinstance(value,Exception):raise value from None
         return value
 
