@@ -4,11 +4,13 @@ No key/environment/file access occurs unless the supplied reader is called after
 No SDK retries, redirects, proxy changes, error bodies or prompts are logged/persisted.
 """
 import http.client
+import errno
 import json
 import math
 import queue
 import re
 import ssl
+import socket
 import threading
 import time
 from dataclasses import dataclass,field
@@ -36,12 +38,23 @@ class ProviderFailure(RuntimeError):
 
 def safe_failure_kind(exc):
     """Classify transport exceptions without retaining messages or payload bytes."""
-    for kind in (http.client.RemoteDisconnected, ssl.SSLCertVerificationError, ssl.SSLError, TimeoutError,
+    for kind in (http.client.RemoteDisconnected, ssl.SSLCertVerificationError, ssl.SSLError, socket.gaierror, TimeoutError,
                  ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
                  http.client.IncompleteRead,
                  http.client.BadStatusLine, OSError):
         if isinstance(exc,kind):return kind.__name__
     return 'OtherTransportError'
+
+
+def safe_failure_errno(exc):
+    """Return only recognized numeric OS/DNS codes, never exception messages."""
+    code = getattr(exc, 'errno', None)
+    if type(code) is not int:
+        return None
+    allowed = set(errno.errorcode)
+    allowed.update(getattr(socket, name) for name in dir(socket)
+                   if name.startswith('EAI_') and type(getattr(socket, name)) is int)
+    return code if code in allowed else None
 
 
 @dataclass(frozen=True)
@@ -149,6 +162,7 @@ class NativeHTTPS:
             except Exception as exc:
                 category='timeout' if isinstance(exc,TimeoutError) else ('tls_error' if isinstance(exc,ssl.SSLError) else 'network_error')
                 value=ProviderFailure(category);value.transport_kind=safe_failure_kind(exc)
+                value.error_errno=safe_failure_errno(exc)
             finally:
                 try:
                     if conn:conn.close()
@@ -160,6 +174,8 @@ class NativeHTTPS:
                     'response_status':response_status,
                     'sse_done_frame':bool(chat_stream and chat_stream.done_frame),
                     'sse_complete':bool(chat_stream and chat_stream.complete)}
+                if getattr(value,'error_errno',None) is not None:
+                    value.response_diagnostics['error_errno']=value.error_errno
             result.put(value)
         thread=threading.Thread(target=worker,daemon=True);thread.start()
         try:value=result.get(timeout=timeout)
