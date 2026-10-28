@@ -6,6 +6,8 @@ discarded after validation; accounting keeps only hashes and usage metadata.
 from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
+import errno
+import socket
 import json
 import os
 from pathlib import Path
@@ -288,7 +290,7 @@ class ServiceTransport:
         phase=getattr(receipt_http,'failure_phase',None)
         phases={'tls_setup','post_started','response_headers','response_body','deadline_unknown'}
         kind=getattr(receipt_http,'failure_kind',None)
-        kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
+        kinds={'SSLCertVerificationError','SSLError','gaierror','TimeoutError','ConnectionResetError',
             'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
             'BadStatusLine','OSError','OtherTransportError','HTTPXTimeout',
             'HTTPXRemoteProtocolError','HTTPXConnectError','HTTPXReadError','HTTPXWriteError'}
@@ -298,6 +300,11 @@ class ServiceTransport:
             size=raw.get('received_bytes');status=raw.get('response_status')
             if type(size) is int and 0<=size<=8*1024*1024:diagnostic['received_bytes']=size
             if type(status) is int and 100<=status<=599:diagnostic['response_status']=status
+            code=raw.get('error_errno')
+            known=set(errno.errorcode)
+            known.update(getattr(socket,name) for name in dir(socket)
+                         if name.startswith('EAI_') and type(getattr(socket,name)) is int)
+            if type(code) is int and code in known:diagnostic['error_errno']=code
             for key in ('sse_done_frame','sse_complete','http2'):
                 if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
         row={'fingerprint':fingerprint,'phase':phase if isinstance(phase,str) and phase in phases else None,
