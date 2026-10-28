@@ -1,6 +1,6 @@
 # Linked evidence candidate
 
-`tracemem-mm-linked-v4.5.2-rc1` is an unsubmitted candidate. An independent
+`tracemem-mm-linked-v4.5.3-rc1` is an unsubmitted candidate. An independent
 control for its predecessor retrieved both needed sources into the candidate
 pool but returned only one after model selection. That observation identifies
 a selection-stage omission in that control, not the cause of any official score.
@@ -11,6 +11,16 @@ succeeded, then a fourth lost the connection while awaiting response headers.
 No Search or GPT selection ran, so quality is still unverified. The input and
 finite plan were closed; the unknown receipt and full reserve remain preserved.
 This is not an algorithm zero score and does not identify a transport root cause.
+
+A second v4.5.2 control completed its Adds, but its first GPT selection reached
+the total deadline without a result. The v4.5.3 change preserves the worker's
+last observed transport phase and bounded scalar progress at that deadline.
+Its evidence-selection algorithm and failure handling are unchanged. It cannot
+recover missing historical diagnostics or prove a connectivity repair. Separate
+new short-text and eight-synthetic-image transport controls passed with this
+diagnostic code on the existing options selector; they do not qualify the linked
+selector's direct-recall or cross-session behavior. That still needs a new frozen
+independent end-to-end control before deployment or official evaluation.
 
 The new selector asks the same approved model for source witnesses, direct
 evidence roots and explicit prerequisite indices. The service returns the

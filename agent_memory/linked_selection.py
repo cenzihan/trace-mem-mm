@@ -9,7 +9,7 @@ from .mem0_options import Mem0OptionsSystem
 from .protocol import ContractError
 from .provider_http import OPENAI_ENDPOINT, ProviderFailure
 
-VERSION = 'tracemem-mm-linked-v4.5.2-rc1'
+VERSION = 'tracemem-mm-linked-v4.5.3-rc1'
 SYSTEM = (
     'Retrieve original sources that together support the ORIGINAL QUERY. Return only '
     'JSON {"roots":[1],"evidence":[{"index":1,"kind":"text","witness":"exact source '
