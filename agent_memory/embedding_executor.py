@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .development_run import ScopedTransport
 from .embedding_cache import SourceEmbeddingCache, RUNTIME
-from .provider_http import BudgetedJSONTransport, HTTPReply, validate_endpoint
+from .provider_http import BudgetedJSONTransport, HTTPReply, OPENAI_ENDPOINT, validate_endpoint
 from .visual_recovery import _safe_body, _strict_json
 
 
@@ -155,6 +155,8 @@ class _ReceiptHTTP:
         row = self.journal.row(self.fingerprint)
         if row['state'] != 'inflight' or not row['attempt_id']:
             raise EmbeddingExecutorBlocked('budget attempt must be bound before network dispatch')
+        if endpoint == OPENAI_ENDPOINT and headers.get('X-Client-Request-Id') != row['attempt_id']:
+            raise EmbeddingExecutorBlocked('client request id must match the bound budget attempt')
         try:reply = self.inner.exchange(endpoint, body, headers, timeout, max_response_bytes)
         except BaseException as exc:
             self.failure_phase=getattr(exc,'phase',None)

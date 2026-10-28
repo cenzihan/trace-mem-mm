@@ -84,6 +84,13 @@ def validate_endpoint(model,endpoint):
     raise ValueError('endpoint/model policy forbids substitution or implicit region change')
 
 
+def _openai_client_request_id(attempt):
+    """Expose only the random, already-durable attempt ID for provider support."""
+    if not isinstance(attempt, str) or re.fullmatch(r'attempt_[0-9a-f]{32}', attempt) is None:
+        raise ProviderFailure('invalid_contract')
+    return attempt
+
+
 class NativeHTTPS:
     """One HTTP POST, bounded deadline; optional unauthenticated TLS setup repeats.
 
@@ -336,7 +343,13 @@ class BudgetedJSONTransport:
             status=None;returned=None;usage=None;data=None;category='network_error';reply=None
             try:
                 if self.attempt_observer is not None:self.attempt_observer(attempt)
-                reply=self.http.exchange(endpoint,raw,headers,self.timeout,self.limit)
+                request_headers = headers
+                if endpoint == OPENAI_ENDPOINT and self.model == 'gpt-4o-mini':
+                    # The reservation precedes every POST. A configured service
+                    # observer has bound its journal before we get here.
+                    # A fresh attempt owns a fresh opaque ID; no input is encoded.
+                    request_headers = {**headers, 'X-Client-Request-Id': _openai_client_request_id(attempt)}
+                reply=self.http.exchange(endpoint,raw,request_headers,self.timeout,self.limit)
                 if not isinstance(reply,HTTPReply) or type(reply.status) is not int or not 100<=reply.status<=599:
                     raise ProviderFailure('invalid_contract')
                 status=reply.status
