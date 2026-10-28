@@ -3,7 +3,7 @@ from .joint_selection import retrieval_text
 from .mem0_joint import Mem0JointSystem
 from .protocol import validate_search
 
-VERSION = 'tracemem-mm-mem0-options-v4.3.1'
+VERSION = 'tracemem-mm-mem0-options-v4.3.2'
 
 
 class Mem0OptionsSystem(Mem0JointSystem):
