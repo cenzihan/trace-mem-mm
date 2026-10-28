@@ -6,6 +6,8 @@ discarded after validation; accounting keeps only hashes and usage metadata.
 from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
+import errno
+import socket
 import json
 import os
 from pathlib import Path
@@ -88,6 +90,8 @@ class _ServiceJournal(_Journal):
             for row in db.execute("SELECT * FROM operations WHERE scope=? AND state NOT IN ('ready','complete')",(current['scope'],)):
                 recovery=getattr(self,'operator_recovery',None)
                 if recovery and recovery.permits(dict(row)):continue
+                scoped=getattr(self,'scoped_unknown_permits',None)
+                if scoped and scoped(dict(row)):continue
                 proof=db.execute('SELECT * FROM discarded_auxiliary_failures WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
                 retired=db.execute('SELECT 1 FROM undispatched_retirements WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
                 if acknowledged_failure(row,proof):continue
@@ -101,6 +105,7 @@ class ServiceTransport:
     transport_type = ServiceBudgetedTransport
     output_token_cap = 512
     receipt_scope = 'official-service-v1'
+    scoped_unknown_enabled = False
 
     def normalize_result(self, value, model):
         return omit_nontext_quote_metadata(value) if model=='gpt-4o-mini' else value
@@ -147,6 +152,8 @@ class ServiceTransport:
         from .operator_recovery import OperatorRecovery
         self.operator_recovery = OperatorRecovery(Path(journal_root)/'operator-scoped-recovery.json',self.journal,self.ledger)
         self.journal.operator_recovery = self.operator_recovery
+        if self.scoped_unknown_enabled:
+            self.journal.scoped_unknown_permits = self._valid_scoped_unknown
         self.readers = readers
         self.lock = threading.Lock()
 
@@ -177,6 +184,33 @@ class ServiceTransport:
         user_sha=hashlib.sha256(payload['user_id'].encode()).hexdigest()
         if any(p['blocked_user_sha256']==user_sha for p in self.quarantines().values()):
             raise ValueError('retired uncertain input scope cannot be replayed')
+        if self.scoped_unknown_enabled and self.has_scoped_unknown(user_sha):
+            raise ValueError('user has an unresolved model request')
+
+    def _scoped_unknown(self, row):
+        from .scoped_unknown import verify_unknown
+        with self.ledger.connect() as db:
+            a=db.execute('SELECT id,status,reserved,accounted,model FROM attempts WHERE id=?',(row['attempt_id'],)).fetchone()
+            o=db.execute('SELECT attempt_id,http_status,category FROM provider_observations WHERE attempt_id=?',(row['attempt_id'],)).fetchone()
+        if a is None or o is None:raise ValueError('missing scoped unknown accounting')
+        owner,payload=verify_unknown(row,dict(zip(('id','status','reserved','accounted','model'),a)),
+            dict(zip(('attempt_id','http_status','category'),o)))
+        return owner,payload,a[4]
+
+    def _valid_scoped_unknown(self, row):
+        if not self.scoped_unknown_enabled or row['state']!='unknown':return False
+        try:self._scoped_unknown(row)
+        except (ValueError,TypeError):return False
+        return True
+
+    def has_scoped_unknown(self, owner, *, model=None):
+        with self.journal.connect() as db:
+            rows=[dict(row) for row in db.execute("SELECT * FROM operations WHERE state='unknown'")]
+        for row in rows:
+            if not self._valid_scoped_unknown(row):continue
+            candidate,_,kind=self._scoped_unknown(row)
+            if candidate==owner and (model is None or kind==model):return True
+        return False
 
     def prices(self):
         value = json.loads(self.prices_path.read_text())
@@ -209,6 +243,7 @@ class ServiceTransport:
                 from .operator_recovery import row_digest
                 if row_digest(row)!=recovery['row_sha256']:raise ValueError('recovery row changed')
                 continue
+            if self._valid_scoped_unknown(row):continue
             proof_unknown=quarantines.get(row['fingerprint'])
             if proof_unknown and self.receipt_scope!=proof_unknown['scope']:continue
             proof = discarded.get(row['fingerprint'])
@@ -288,7 +323,7 @@ class ServiceTransport:
         phase=getattr(receipt_http,'failure_phase',None)
         phases={'tls_setup','post_started','response_headers','response_body','deadline_unknown'}
         kind=getattr(receipt_http,'failure_kind',None)
-        kinds={'SSLCertVerificationError','SSLError','TimeoutError','ConnectionResetError',
+        kinds={'SSLCertVerificationError','SSLError','gaierror','TimeoutError','ConnectionResetError',
             'ConnectionAbortedError','BrokenPipeError','RemoteDisconnected','IncompleteRead',
             'BadStatusLine','OSError','OtherTransportError','HTTPXTimeout',
             'HTTPXRemoteProtocolError','HTTPXConnectError','HTTPXReadError','HTTPXWriteError'}
@@ -298,6 +333,11 @@ class ServiceTransport:
             size=raw.get('received_bytes');status=raw.get('response_status')
             if type(size) is int and 0<=size<=8*1024*1024:diagnostic['received_bytes']=size
             if type(status) is int and 100<=status<=599:diagnostic['response_status']=status
+            code=raw.get('error_errno')
+            known=set(errno.errorcode)
+            known.update(getattr(socket,name) for name in dir(socket)
+                         if name.startswith('EAI_') and type(getattr(socket,name)) is int)
+            if type(code) is int and code in known:diagnostic['error_errno']=code
             for key in ('sse_done_frame','sse_complete','http2'):
                 if type(raw.get(key)) is bool:diagnostic[key]=raw[key]
         row={'fingerprint':fingerprint,'phase':phase if isinstance(phase,str) and phase in phases else None,
@@ -327,12 +367,22 @@ class ServiceTransport:
             fingerprint = uuid.uuid4().hex
             payload_sha=hashlib.sha256(_json(payload).encode()).hexdigest()
             self.operator_recovery.assert_payload(payload_sha)
+            if self.scoped_unknown_enabled:
+                from .scoped_unknown import owner_digest
+                owner=owner_digest()
+                if self.has_scoped_unknown(owner):raise ValueError('user has an unresolved model request')
+                with self.journal.connect() as db:
+                    unresolved=[dict(row) for row in db.execute("SELECT * FROM operations WHERE state='unknown'")]
+                for row in unresolved:
+                    if self._valid_scoped_unknown(row) and self._scoped_unknown(row)[1]==payload_sha:
+                        raise ValueError('unknown model request cannot be replayed')
             for proof in self.quarantines().values():
                 original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
                 if original.get('payload_sha256')==payload_sha:
                     raise ValueError('retired unknown model request cannot be replayed')
             manifest = {'keys':[fingerprint], 'model':model,'payload_sha256':payload_sha,
                 'request_bytes':len(_json(payload).encode()),'streaming':payload.get('stream') is True}
+            if self.scoped_unknown_enabled:manifest['owner_sha256']=owner
             receipt_http = _ReceiptHTTP(self.http, self.journal, fingerprint, payload, None)
             receipt_http.endpoint = endpoint
             transport = self.transport_type(model=model, endpoint=endpoint, ledger=self.ledger,

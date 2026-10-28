@@ -162,6 +162,11 @@ class SelectionServiceTransport(Mem0ServiceTransport):
         return value  # Already validated as indices, never reinterpret as source cards.
 
 
+class ScopedSelectionServiceTransport(SelectionServiceTransport):
+    """Explicit candidate: safely isolate newly attributed unknown calls."""
+    scoped_unknown_enabled = True
+
+
 class JointSelector:
     def __init__(self, transport):self.transport = transport
 
