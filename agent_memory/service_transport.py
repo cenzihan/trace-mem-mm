@@ -370,16 +370,20 @@ class ServiceTransport:
             if self.scoped_unknown_enabled:
                 from .scoped_unknown import owner_digest
                 owner=owner_digest()
-                if self.has_scoped_unknown(owner):raise ValueError('user has an unresolved model request')
+                if self.has_scoped_unknown(owner):
+                    from .pre_dispatch import PreDispatchRejection
+                    raise PreDispatchRejection('user has an unresolved model request')
                 with self.journal.connect() as db:
                     unresolved=[dict(row) for row in db.execute("SELECT * FROM operations WHERE state='unknown'")]
                 for row in unresolved:
                     if self._valid_scoped_unknown(row) and self._scoped_unknown(row)[1]==payload_sha:
-                        raise ValueError('unknown model request cannot be replayed')
+                        from .pre_dispatch import PreDispatchRejection
+                        raise PreDispatchRejection('unknown model request cannot be replayed')
             for proof in self.quarantines().values():
                 original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
                 if original.get('payload_sha256')==payload_sha:
-                    raise ValueError('retired unknown model request cannot be replayed')
+                    from .pre_dispatch import PreDispatchRejection
+                    raise PreDispatchRejection('retired unknown model request cannot be replayed')
             manifest = {'keys':[fingerprint], 'model':model,'payload_sha256':payload_sha,
                 'request_bytes':len(_json(payload).encode()),'streaming':payload.get('stream') is True}
             if self.scoped_unknown_enabled:manifest['owner_sha256']=owner
