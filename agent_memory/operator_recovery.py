@@ -91,4 +91,5 @@ class OperatorRecovery:
 
     def assert_payload(self,payload_sha):
         if any(p['payload_sha256']==payload_sha for p in self.proofs().values()):
-            raise ValueError('retired model payload cannot be replayed')
+            from .pre_dispatch import PreDispatchRejection
+            raise PreDispatchRejection('retired model payload cannot be replayed')

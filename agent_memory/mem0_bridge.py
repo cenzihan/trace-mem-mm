@@ -21,6 +21,7 @@ from .store import MemoryStore
 from .caption_image import caption_part
 from .scoped_unknown import bound_request
 from .readiness_error import ReadinessFailure
+from .pre_dispatch import PreDispatchRejection
 
 VERSION='tracemem-mm-mem0-v3.0.3'
 MEM0_VERSION='2.2.1'
@@ -56,6 +57,10 @@ class BudgetEmbedding:
         vectors=[]
         try:
             for start in range(0,len(flat),10):vectors.extend(self.embedding.embed(flat[start:start+10]))
+        except PreDispatchRejection:
+            # This particular provider request was rejected before journal claim.
+            # The enclosing Add still records its failure and blocks replay.
+            raise
         except BaseException:
             self.failed=True; raise
         out=[]; cursor=0
