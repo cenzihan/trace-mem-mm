@@ -3,7 +3,9 @@
 Current fixed service: **tracemem-mm-mem0-options-v4.3.1**, release
 `d9b713aa8dfdb0ebfeece6b0f00dd92552743e64`, at
 [/v2.1/health](https://45.192.104.173/v2.1/health) (same-version alias `/v2.2`).
-It is deployed and registered; its official Smoke is pending. It uses raw Mem0
+It was deployed and registered, and its private official compatibility Smoke
+completed successfully. A past Smoke does not establish current availability;
+check the health endpoint before use. It uses raw Mem0
 storage, `text-embedding-v4`, and at most one `gpt-4o-mini` evidence-selection call
 per Search, with supplied choices treated as untrusted context. See the
 [choice-context method](docs/mem0-options-context.md). The previous joint v4.2.0
