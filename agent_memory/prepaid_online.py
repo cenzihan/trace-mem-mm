@@ -13,7 +13,8 @@ import time
 
 from .embedding_executor import _Journal, _ReceiptHTTP, _json
 from .provider_http import (BAILIAN_BEIJING_ENDPOINT, OPENAI_ENDPOINT,
-                            BudgetedJSONTransport, NativeHTTPS, ProviderFailure)
+                            BudgetedJSONTransport, NativeHTTPS, ProviderFailure,
+                            _openai_client_request_id)
 from .visual_recovery import _strict_json
 
 MODELS = {'gpt-4o-mini': (OPENAI_ENDPOINT, 250000, 128000, 512),
@@ -121,6 +122,9 @@ class PrepaidOnlineTransport:
             db.execute('UPDATE operations SET online_payload_sha256=? WHERE fingerprint=?',
                        (hashlib.sha256(raw).hexdigest(), fp))
         headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
+        if model == 'gpt-4o-mini':
+            # Reuse the grant's already-reserved parent attempt; no new budget.
+            headers['X-Client-Request-Id'] = _openai_client_request_id(slot['parent_attempt_id'])
         wrapped = _ReceiptHTTP(self.http, self.journal, fp, payload, None)
         wrapped.endpoint = endpoint
         tick = time.monotonic()

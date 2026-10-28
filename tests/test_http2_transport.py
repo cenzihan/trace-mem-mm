@@ -23,10 +23,11 @@ class HTTP2TransportTests(unittest.TestCase):
             def __init__(self):
                 self.h2=h2.connection.H2Connection(config=h2.config.H2Configuration(client_side=False))
                 self.h2.initiate_connection();self.pending=self.h2.data_to_send()
-                self.posts=0;self.closed=False;self.tls_verified=False;self.connects=0
+                self.posts=0;self.closed=False;self.tls_verified=False;self.connects=0;self.request_headers=[]
             def write(self,data,timeout=None):
                 for event in self.h2.receive_data(data):
-                    if isinstance(event,h2.events.RequestReceived):self.posts+=1
+                    if isinstance(event,h2.events.RequestReceived):
+                        self.posts+=1;self.request_headers.append(dict(event.headers))
                     if isinstance(event,h2.events.DataReceived):
                         self.h2.acknowledge_received_data(event.flow_controlled_length,event.stream_id)
                     if isinstance(event,h2.events.StreamEnded):
@@ -72,6 +73,14 @@ class HTTP2TransportTests(unittest.TestCase):
         self.assertEqual((net.posts,net.connects),(2,1))
         self.assertEqual(client.counters(),dict(gpt_posts_started=2,http2_responses=2,
                                                complete_sse_responses=2,new_connections=1))
+
+    def test_client_request_id_survives_http2_frame_encoding(self):
+        client,net=self.network()
+        request_id='attempt_'+'a'*32
+        client.exchange(OPENAI_ENDPOINT,self.body,
+            {'Authorization':'Bearer SYNTHETIC_ONLY','X-Client-Request-Id':request_id},2,8192)
+        self.assertEqual(net.posts,1)
+        self.assertEqual(net.request_headers[0][b'x-client-request-id'],request_id.encode())
 
     def test_header_disconnect_stops_without_post_retry_or_sensitive_error(self):
         client,net=self.network('headers_gone')
