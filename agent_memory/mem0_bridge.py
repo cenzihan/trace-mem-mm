@@ -20,6 +20,7 @@ from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 from .caption_image import caption_part
 from .scoped_unknown import bound_request
+from .readiness_error import ReadinessFailure
 
 VERSION='tracemem-mm-mem0-v3.0.3'
 MEM0_VERSION='2.2.1'
@@ -137,8 +138,10 @@ class Mem0System(MemoryStore):
             admission_capacity=16,queue_wait_seconds=30,receipt_content_logging=False)
 
     def ready(self):
-        if self.native.embedding_model.failed or self.native.llm.failed:
-            raise ValueError('SDK provider failure requires operator reconciliation')
+        if self.native.embedding_model.failed:
+            raise ReadinessFailure('embedding_latch')
+        if self.native.llm.failed:
+            raise ReadinessFailure('llm_latch')
         self.transport.ready()
 
     def _describe(self,parts):
