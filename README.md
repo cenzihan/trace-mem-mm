@@ -1,5 +1,8 @@
 # TraceMem-MM
 
+Original project code is available under the [MIT License](LICENSE); third-party
+components retain their own terms and attribution in [NOTICE.md](NOTICE.md).
+
 Current fixed service: **tracemem-mm-mem0-options-v4.3.1**, release
 `d9b713aa8dfdb0ebfeece6b0f00dd92552743e64`, at
 [/v2.1/health](https://45.192.104.173/v2.1/health) (same-version alias `/v2.2`).
