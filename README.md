@@ -3,12 +3,13 @@
 Original project code is available under the [MIT License](LICENSE); third-party
 components retain their own terms and attribution in [NOTICE.md](NOTICE.md).
 
-Current fixed service: **tracemem-mm-mem0-options-v4.3.1**, release
-`d9b713aa8dfdb0ebfeece6b0f00dd92552743e64`, at
+Current fixed service: **tracemem-mm-mem0-options-v4.3.2**, release
+`c1c246df49a72e48ad839a8884d6f4e7a0119618`, at
 [/v2.1/health](https://45.192.104.173/v2.1/health) (same-version alias `/v2.2`).
-It was deployed and registered, and its private official compatibility Smoke
-completed successfully. A past Smoke does not establish current availability;
-check the health endpoint before use. It uses raw Mem0
+This service-recovery patch is deployed and registered, with no new official
+Smoke submitted. Its retrieval behavior is unchanged from v4.3.1, whose private
+compatibility Smoke completed successfully. A past Smoke does not establish
+current availability; check the health endpoint before use. It uses raw Mem0
 storage, `text-embedding-v4`, and at most one `gpt-4o-mini` evidence-selection call
 per Search, with supplied choices treated as untrusted context. See the
 [choice-context method](docs/mem0-options-context.md). The previous joint v4.2.0
@@ -17,9 +18,12 @@ that small private evaluation establishes a Full/public leaderboard result. The 
 route is retired. Evaluation credentials and private task receipts are not in
 this repository.
 
-v4.3.1 passed822 offline checks, Docker CI, runtime-source verification, an
-independent original-image preflight, and12 public interface checks. The initial
-v4.3.0 negative-control failure remains recorded. Original accounting, model
+The recovery release passed Docker CI,80-file runtime-source verification,
+10 focused guard tests,19 options tests and12 public interface checks. Its
+independent preflight completed all8 model calls successfully: image retrieval
+and cross-session controls passed, but unrelated-query abstention failed. This
+quality failure remains open; restoration is not a new quality acceptance or
+score claim. See [operator recovery](docs/operator-recovery.md). Original accounting, model
 identity, failed/unknown receipts, source tags and service history are preserved;
 the fixed release tag does not move when deployment documentation changes.
 
