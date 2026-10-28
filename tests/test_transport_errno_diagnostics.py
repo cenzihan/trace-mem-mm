@@ -43,6 +43,35 @@ class TransportErrnoDiagnosticsTests(unittest.TestCase):
             self.assertNotIn('error_errno',records[1]);self.assertNotIn('error_errno',records[2])
             self.assertNotIn('SECRET',json.dumps(records))
 
+    def test_initial_connection_plus_five_tls_retries_send_no_post(self):
+        attempts=[]
+        class Connection:
+            def connect(self):
+                attempts.append('connect')
+                raise OSError(errno.ENETUNREACH, 'PRIVATE')
+            def close(self): pass
+            def request(self,*args,**kwargs):
+                attempts.append('post')
+                raise AssertionError('POST must not be sent')
+        with patch('agent_memory.provider_http.http.client.HTTPSConnection', side_effect=lambda *a,**k:Connection()):
+            with self.assertRaises(ProviderFailure) as caught:
+                NativeHTTPS(handshake_attempts=6).exchange(BAILIAN_BEIJING_ENDPOINT,b'PRIVATE',{},15,1024)
+        self.assertEqual(attempts,['connect']*6)
+        self.assertEqual(caught.exception.phase,'tls_setup')
+
+    def test_post_failure_never_retries(self):
+        calls=[]
+        class Connection:
+            sock=SimpleNamespace(settimeout=lambda *args:None)
+            def connect(self): calls.append('connect')
+            def request(self,*args,**kwargs): calls.append('post');raise OSError(errno.ECONNRESET,'PRIVATE')
+            def close(self): pass
+        with patch('agent_memory.provider_http.http.client.HTTPSConnection', side_effect=lambda *a,**k:Connection()):
+            with self.assertRaises(ProviderFailure) as caught:
+                NativeHTTPS(handshake_attempts=6).exchange(BAILIAN_BEIJING_ENDPOINT,b'PRIVATE',{},15,1024)
+        self.assertEqual(calls,['connect','post'])
+        self.assertEqual(caught.exception.phase,'post_started')
+
 
 if __name__ == '__main__':
     unittest.main()

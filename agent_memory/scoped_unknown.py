@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import hashlib
 import json
+from functools import wraps
 
 _owner = ContextVar('scoped_unknown_owner', default=None)
 
@@ -31,6 +32,32 @@ def owner_digest():
     if not _is_digest(owner):
         raise ValueError('request owner not bound')
     return owner
+
+
+def bound_request(method):
+    """Bind the API owner for a single opt-in store call; never log the ID."""
+    @wraps(method)
+    def wrapped(self, payload):
+        transport = self.transport
+        if not getattr(transport, 'scoped_unknown_enabled', False):
+            return method(self, payload)
+        # Preserve the existing validation path for malformed requests.
+        if not isinstance(payload, dict) or not isinstance(payload.get('user_id'), str) or not payload['user_id']:
+            return method(self, payload)
+        with request_owner(payload['user_id']):
+            try:
+                return method(self, payload)
+            except BaseException:
+                # Clear only the SDK's transient latch after this owner has a
+                # durable scoped unknown and all other readiness gates pass.
+                try:
+                    if transport.has_scoped_unknown(owner_digest(), model='text-embedding-v4'):
+                        transport.ready()
+                        self.native.embedding_model.failed = False
+                except Exception:
+                    pass
+                raise
+    return wrapped
 
 
 def verify_unknown(row, attempt, observation):

@@ -2,11 +2,23 @@
 import copy
 import json
 import unittest
+from types import SimpleNamespace
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
-from agent_memory.scoped_unknown import owner_digest, request_owner, verify_unknown
+from agent_memory.scoped_unknown import bound_request, owner_digest, request_owner, verify_unknown
 
 
 class ScopedUnknownTests(unittest.TestCase):
+    def test_parallel_owners_do_not_bleed_between_threads(self):
+        barrier=Barrier(2)
+        def work(uid):
+            with request_owner(uid):
+                before=owner_digest();barrier.wait(timeout=3);return before,owner_digest()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(work,'user-a');b=pool.submit(work,'user-b');av=a.result();bv=b.result()
+        self.assertEqual(av[0],av[1]);self.assertEqual(bv[0],bv[1]);self.assertNotEqual(av[0],bv[0])
+
     def test_context_is_nested_and_restored_on_exception(self):
         with self.assertRaises(ValueError): owner_digest()
         with request_owner('user-a'):
@@ -31,6 +43,40 @@ class ScopedUnknownTests(unittest.TestCase):
             chosen = r if target is row else a if target is attempt else o
             chosen[key] = value
             with self.assertRaises(ValueError): verify_unknown(r,a,o)
+
+    def test_sdk_failure_latch_clears_only_for_proven_scoped_unknown(self):
+        class Transport:
+            scoped_unknown_enabled=True
+            proof=False
+            def has_scoped_unknown(self, owner, *, model=None):
+                self.last=(owner,model);return self.proof
+            def ready(self): pass
+        class Store:
+            transport=Transport()
+            native=SimpleNamespace(embedding_model=SimpleNamespace(failed=True))
+            @bound_request
+            def add(self,payload): raise RuntimeError('synthetic')
+        store=Store()
+        with self.assertRaises(RuntimeError):store.add({'user_id':'u'})
+        self.assertTrue(store.native.embedding_model.failed)
+        store.transport.proof=True
+        with self.assertRaises(RuntimeError):store.add({'user_id':'u'})
+        self.assertFalse(store.native.embedding_model.failed)
+        self.assertEqual(store.transport.last[1],'text-embedding-v4')
+
+    def test_readiness_failure_never_clears_sdk_latch(self):
+        class Transport:
+            scoped_unknown_enabled=True
+            def has_scoped_unknown(self, owner, *, model=None): return True
+            def ready(self): raise ValueError('unscoped failure')
+        class Store:
+            transport=Transport()
+            native=SimpleNamespace(embedding_model=SimpleNamespace(failed=True))
+            @bound_request
+            def add(self,payload): raise RuntimeError('synthetic')
+        store=Store()
+        with self.assertRaises(RuntimeError):store.add({'user_id':'u'})
+        self.assertTrue(store.native.embedding_model.failed)
 
 
 if __name__ == '__main__': unittest.main()

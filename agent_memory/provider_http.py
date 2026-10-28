@@ -106,8 +106,8 @@ class NativeHTTPS:
     is_fake_http=False
 
     def __init__(self,handshake_attempts=1,*,stop_at_chat_done=False):
-        if type(handshake_attempts) is not int or not 1<=handshake_attempts<=3:
-            raise ValueError('TLS setup attempts must be within1..3')
+        if type(handshake_attempts) is not int or not 1<=handshake_attempts<=6:
+            raise ValueError('TLS setup attempts must be within1..6')
         if type(stop_at_chat_done) is not bool:raise ValueError('explicit stream-completion policy required')
         self.stop_at_chat_done=stop_at_chat_done
         self.handshake_attempts=handshake_attempts;self._slot=threading.Lock()

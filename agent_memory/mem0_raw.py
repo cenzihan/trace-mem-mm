@@ -12,6 +12,7 @@ from .mem0_evidence import Mem0EvidenceSystem, pack_mixed
 from .mem0_transport import Mem0ServiceTransport
 from .protocol import ContractError, canonical, image_hashes, text_of, content_parts, validate_search
 from .retrieval import bm25, ranked, rrf
+from .scoped_unknown import bound_request
 
 VERSION = 'tracemem-mm-mem0-raw-v4.0.0'
 
@@ -70,6 +71,7 @@ class Mem0RawSystem(Mem0EvidenceSystem):
                 raise ValueError('native raw write did not acknowledge the complete source')
         return descriptions
 
+    @bound_request
     def search(self, payload):
         parts = validate_search(payload)
         self._assert_user_allowed(payload)
