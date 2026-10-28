@@ -168,12 +168,16 @@ class Mem0System(MemoryStore):
         if batch:self.native.add(batch,user_id=native_scope(payload['user_id']),infer=True);self.ready()
         return descriptions
 
-    def add(self,payload):
-        validate_add(payload)
+    def _assert_user_allowed(self,payload):
+        """Apply permanent source retirement to reads as well as writes."""
         check=getattr(self.transport,'assert_source_allowed',None)
         if check:
             try:check(payload)
             except ValueError:raise ContractError('retired or invalid source scope',503) from None
+
+    def add(self,payload):
+        validate_add(payload)
+        self._assert_user_allowed(payload)
         uid,req=payload['user_id'],payload['request_id']
         digest=hashlib.sha256(canonical(payload).encode()).hexdigest();owner=uuid.uuid4().hex
         with self.lock:
@@ -202,6 +206,7 @@ class Mem0System(MemoryStore):
 
     def search(self,payload):
         parts=validate_search(payload)
+        self._assert_user_allowed(payload)
         with self.lock:
             _,rows=self._native_results(payload,parts)
             return {'data':rows}

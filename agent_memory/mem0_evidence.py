@@ -61,6 +61,7 @@ class Mem0EvidenceSystem(Mem0System):
 
     def search(self, payload):
         parts = validate_search(payload)
+        self._assert_user_allowed(payload)
         uid = payload['user_id']
         with self.lock:
             # Validate the archive before any paid query call. A missing index is
