@@ -86,6 +86,8 @@ class _ServiceJournal(_Journal):
             if current is None or current['state']!='ready' or not never_dispatched(current):
                 raise EmbeddingExecutorBlocked('operation already attempted; no automatic replay')
             for row in db.execute("SELECT * FROM operations WHERE scope=? AND state NOT IN ('ready','complete')",(current['scope'],)):
+                recovery=getattr(self,'operator_recovery',None)
+                if recovery and recovery.permits(dict(row)):continue
                 proof=db.execute('SELECT * FROM discarded_auxiliary_failures WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
                 retired=db.execute('SELECT 1 FROM undispatched_retirements WHERE fingerprint=?',(row['fingerprint'],)).fetchone()
                 if acknowledged_failure(row,proof):continue
@@ -142,6 +144,9 @@ class ServiceTransport:
                 normalized_sha TEXT NOT NULL, discarded_at TEXT NOT NULL)''')
             db.execute('''CREATE TABLE IF NOT EXISTS undispatched_retirements (
                 fingerprint TEXT PRIMARY KEY, retired_at TEXT NOT NULL)''')
+        from .operator_recovery import OperatorRecovery
+        self.operator_recovery = OperatorRecovery(Path(journal_root)/'operator-scoped-recovery.json',self.journal,self.ledger)
+        self.journal.operator_recovery = self.operator_recovery
         self.readers = readers
         self.lock = threading.Lock()
 
@@ -168,6 +173,7 @@ class ServiceTransport:
         return proofs
 
     def assert_source_allowed(self,payload):
+        self.operator_recovery.assert_user(payload['user_id'])
         user_sha=hashlib.sha256(payload['user_id'].encode()).hexdigest()
         if any(p['blocked_user_sha256']==user_sha for p in self.quarantines().values()):
             raise ValueError('retired uncertain input scope cannot be replayed')
@@ -192,11 +198,17 @@ class ServiceTransport:
             raise ValueError('budget ownership changed')
         self.prices()
         quarantines=self.quarantines()
+        recovery_proofs=self.operator_recovery.proofs()
         with self.journal.connect() as db:
             rows = [dict(row) for row in db.execute('SELECT * FROM operations')]
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
             retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
         for row in rows:
+            recovery=recovery_proofs.get(row['fingerprint'])
+            if recovery:
+                from .operator_recovery import row_digest
+                if row_digest(row)!=recovery['row_sha256']:raise ValueError('recovery row changed')
+                continue
             proof_unknown=quarantines.get(row['fingerprint'])
             if proof_unknown and self.receipt_scope!=proof_unknown['scope']:continue
             proof = discarded.get(row['fingerprint'])
@@ -314,6 +326,7 @@ class ServiceTransport:
             rate = VerifiedRate(model=model, checked_at=config['checked_at'], **config['models'][model])
             fingerprint = uuid.uuid4().hex
             payload_sha=hashlib.sha256(_json(payload).encode()).hexdigest()
+            self.operator_recovery.assert_payload(payload_sha)
             for proof in self.quarantines().values():
                 original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
                 if original.get('payload_sha256')==payload_sha:

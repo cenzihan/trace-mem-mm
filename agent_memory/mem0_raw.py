@@ -72,6 +72,7 @@ class Mem0RawSystem(Mem0EvidenceSystem):
 
     def search(self, payload):
         parts = validate_search(payload)
+        self._assert_user_allowed(payload)
         uid, query = payload['user_id'], self._retrieval_text(payload, parts)
         with self.lock:
             self.ready()
