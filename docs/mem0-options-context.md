@@ -19,8 +19,9 @@ The initial v4.3.0 independent preflight passed image and location controls but
 returned a source for an unrelated query. Its calls completed; this was a failed
 evidence-selection control, not a transport failure. The v4.3.1 instructions
 explicitly anchor selection to the original query subject/event and distinguish
-archive timestamps from factual answer evidence. This is not a calibrated
-answerability detector; a fresh independent preflight remains necessary.
+archive timestamps from factual answer evidence. A separate independent
+original-image preflight for v4.3.1 passed. This is not a calibrated
+answerability detector, and the preflight does not establish Full performance.
 
 Local admission allows at most32 choices and3500 total UTF-8 bytes of choice
 text. The serialized retrieval view must fit8192 UTF-8 bytes. Existing4000-byte
