@@ -10,3 +10,8 @@ New synthetic checks exercise local-to-original mapping, non-contiguous primary 
 
 
 Independent rc1 validation stopped on an HTTP 400: the standalone support prompt omitted the explicit JSON instruction required by JSON object mode. Five embedding calls and the first selection succeeded; support selection did not execute successfully, so quality remains unvalidated. Historical failed input and its plan are closed. rc2 adds the explicit instruction and an offline API-contract regression; a fresh independent control is required before deployment.
+
+
+The corrected rc2 control completed both model stages, but failed the direct-recall control: support added an unrelated location associated with a different identifier. No quality qualification or deployment is claimed. A preceding isolated control accidentally retained the rc1 image digest in its compose file and reproduced the old API error; those receipts are preserved separately and are not attributed to rc2 runtime.
+
+The v4.6.3 candidate keeps first-pass evidence and allows support review only for sources sharing an exact case-sensitive mixed letter/digit identifier in their visible text. Matching is an eligibility filter, not semantic proof. Pure names, dates, metadata, query/options and image-only relationships do not create edges; these rely on the unchanged first pass. This narrow hypothesis seeks to avoid speculative additions and does not claim general multi-session reasoning improvement.
