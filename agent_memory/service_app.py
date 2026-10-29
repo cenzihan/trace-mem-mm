@@ -5,6 +5,11 @@ import os
 from pathlib import Path
 import threading
 import time
+import errno
+import re
+import uuid
+import socket
+import stat
 from datetime import datetime, timezone
 
 from .app import Application
@@ -59,6 +64,69 @@ class ServiceApplication(Application):
         self.expires_at = expires_at
         self.request_diagnostic_lock = threading.Lock()
 
+    def record_exception(self, stage, exc, status, payload=None, response=None):
+        """Store operational facts and parsed failing input in separate private files."""
+        try:
+            chain, seen, current = [], set(), exc
+            while current is not None and id(current) not in seen and len(chain) < 5:
+                seen.add(id(current))
+                name = type(current).__name__
+                item = {'type':name if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}', name) else 'Other'}
+                if isinstance(current, ReadinessFailure) and current.code in ReadinessFailure.ALLOWED:
+                    item['readiness_code'] = current.code
+                code = getattr(current, 'errno', None)
+                codes = set(errno.errorcode)
+                codes.update(getattr(socket, n) for n in dir(socket)
+                             if n.startswith('EAI_') and type(getattr(socket, n)) is int)
+                if type(code) is int and code in codes:
+                    item['errno'] = code
+                frames = []
+                tb = current.__traceback__
+                while tb is not None and len(frames) < 20:
+                    filename = Path(tb.tb_frame.f_code.co_filename).name
+                    function = tb.tb_frame.f_code.co_name
+                    if (re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}\.py', filename)
+                            and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}', function)):
+                        frames.append({'file':filename,'function':function,'line':tb.tb_lineno})
+                    tb = tb.tb_next
+                item['frames'] = frames
+                chain.append(item)
+                current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+            event = {'at':datetime.now(timezone.utc).isoformat(),
+                     'stage':stage if stage in {'/add','/search','/health','readiness'} else 'other',
+                     'http_status':status if type(status) is int and 400 <= status <= 599 else None,
+                     'exceptions':chain}
+            path = self.transport.quarantine_path.parent / 'request-errors.jsonl'
+            with self.request_diagnostic_lock:
+                if payload is not None:
+                    try:
+                        directory = path.parent / 'private-error-inputs'
+                        directory.mkdir(mode=0o700, exist_ok=True)
+                        if directory.is_symlink() or not directory.is_dir():
+                            raise OSError('invalid private diagnostic directory')
+                        if os.name == 'posix' and stat.S_IMODE(directory.stat().st_mode) & 0o077:
+                            raise OSError('private diagnostic directory permissions too broad')
+                        token = uuid.uuid4().hex
+                        target = directory / (token + '.json')
+                        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0)
+                        fd = os.open(target, flags, 0o600)
+                        with os.fdopen(fd, 'wb') as f:
+                            f.write(json.dumps({'request':payload, 'response':response}, ensure_ascii=False, separators=(',', ':')).encode())
+                        event['private_input'] = token
+                    except (OSError, TypeError, ValueError):
+                        event['private_input'] = None
+                        event['private_input_write_failed'] = True
+                else:
+                    event['private_input'] = None
+                line = (json.dumps(event, separators=(',', ':')) + '\n').encode()
+                with path.open('ab') as f:
+                    if os.fstat(f.fileno()).st_size + len(line) > 4 * 1024 * 1024:
+                        return
+                    f.write(line)
+        except Exception:
+            # Diagnostics must never change the API response or retry behavior.
+            pass
+
     def record_request_503(self, result):
         """Record only a fixed reason, never a request, response, or identifier."""
         reasons = {'unresolved Add; no automatic replay':'unresolved_same_add',
@@ -108,8 +176,11 @@ class ServiceApplication(Application):
         if path == '/health' and environ.get('REQUEST_METHOD') == 'GET':
             try:self.transport.ready();self.scorer_health()
             except ReadinessFailure as exc:
+                self.record_exception('readiness',exc,503)
                 return self.reply(start_response,'503 Service Unavailable','readiness check failed',[('X-TraceMem-Readiness',exc.code)])
-            except Exception:return self.reply(start_response,'503 Service Unavailable','readiness check failed')
+            except Exception as exc:
+                self.record_exception('readiness',exc,503)
+                return self.reply(start_response,'503 Service Unavailable','readiness check failed')
         if path in ('/add','/search') and self.authorized(environ):
             if not self.admissions.acquire(blocking=False):
                 return self.reply(start_response,'429 Too Many Requests','request admission capacity reached',[('Retry-After','5')])
@@ -122,8 +193,11 @@ class ServiceApplication(Application):
                         return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
                     try:self.transport.ready()
                     except ReadinessFailure as exc:
+                        self.record_exception('readiness',exc,503)
                         return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention',[('X-TraceMem-Readiness',exc.code)])
-                    except Exception:return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
+                    except Exception as exc:
+                        self.record_exception('readiness',exc,503)
+                        return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
                     response_status = []
                     def observe_status(status, headers, exc_info=None):
                         response_status.append(status)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from agent_memory.protocol import ContractError
 from agent_memory.service_app import ServiceApplication
+from agent_memory.readiness_error import ReadinessFailure
 
 
 class RequestDiagnosticsTest(unittest.TestCase):
@@ -22,10 +23,11 @@ class RequestDiagnosticsTest(unittest.TestCase):
         self.store = Store()
         self.app = ServiceApplication(self.store, Transport(), 'test', scorer_health=lambda: None)
 
-    def request(self):
+    def request(self, payload=None):
         captured = []
+        raw = json.dumps({} if payload is None else payload).encode()
         env = {'PATH_INFO':'/add','REQUEST_METHOD':'POST', 'HTTP_AUTHORIZATION':'Bearer test',
-               'CONTENT_TYPE':'application/json','CONTENT_LENGTH':'2','wsgi.input':io.BytesIO(b'{}')}
+               'CONTENT_TYPE':'application/json','CONTENT_LENGTH':str(len(raw)),'wsgi.input':io.BytesIO(raw)}
         body = self.app(env, lambda status, headers: captured.append(status))
         return captured[0], b''.join(body)
 
@@ -53,4 +55,47 @@ class RequestDiagnosticsTest(unittest.TestCase):
         self.path.mkdir()
         status, _ = self.request()
         self.assertTrue(status.startswith('503 '))
+
+    def test_exception_details_never_include_message_or_locals(self):
+        def fail(payload):
+            try:
+                raise OSError(111, 'secret question and secret key')
+            except OSError as exc:
+                raise RuntimeError('private response body') from exc
+        self.store.add = fail
+        status, body = self.request()
+        self.assertTrue(status.startswith('500 '))
+        self.assertEqual(json.loads(body)['error'], 'internal service error')
+        text = (Path(self.temp.name) / 'request-errors.jsonl').read_text()
+        event = json.loads(text)
+        self.assertEqual(event['stage'], '/add')
+        self.assertEqual(event['http_status'], 500)
+        self.assertEqual([x['type'] for x in event['exceptions']], ['RuntimeError', 'OSError'])
+        self.assertEqual(event['exceptions'][1]['errno'], 111)
+        for word in ('secret', 'question', 'key', 'payload', 'response body'):
+            self.assertNotIn(word, text)
+
+    def test_readiness_reason_and_sink_failure(self):
+        def fail(): raise ReadinessFailure('embedding_latch')
+        self.app.transport.ready = fail
+        status, _ = self.request()
+        self.assertTrue(status.startswith('503 '))
+        path = Path(self.temp.name) / 'request-errors.jsonl'
+        entry = json.loads(path.read_text())
+        self.assertEqual(entry['exceptions'][0]['readiness_code'], 'embedding_latch')
+        path.unlink()
+        path.mkdir()
+        status, _ = self.request()
+        self.assertTrue(status.startswith('503 '))
+
+    def test_original_input_separately_private_and_no_auth_headers(self):
+        payload = {'query':'synthetic question', 'messages':['synthetic source']}
+        status, _ = self.request(payload)
+        self.assertTrue(status.startswith('503 '))
+        event = json.loads((Path(self.temp.name) / 'request-errors.jsonl').read_text())
+        body_path = Path(self.temp.name) / 'private-error-inputs' / (event['private_input'] + '.json')
+        body = json.loads(body_path.read_text(encoding='utf-8'))
+        self.assertEqual(body, {'request':payload, 'response':{'error':'user has unresolved Add'}})
+        self.assertNotIn('Bearer test', body_path.read_text(encoding='utf-8'))
+        self.assertNotIn('synthetic question', json.dumps(event))
 
