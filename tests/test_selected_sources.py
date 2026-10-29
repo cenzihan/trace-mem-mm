@@ -44,7 +44,10 @@ class SelectedNativeTests(unittest.TestCase):
     def add(self,req,values,uid='u'):
         return self.store.add(dict(user_id=uid,request_id=req,session_id=req,messages=[dict(role='user',content=v) for v in values]))
 
-    def search(self,query='synthetic evidence',uid='u'):
+    def search(self,query=None,uid='u'):
+        # These are packing tests with fixed choices. Ensure the synthetic
+        # lexical pool contains those choices before testing output expansion.
+        if query is None:query=' '.join(self.labels) or 'image primary'
         return self.store.search(dict(user_id=uid,query=query,options=['first','second'],top_k=100))['data']
 
     def test_only_primaries_preserve_originals_order_and_media_budget(self):
