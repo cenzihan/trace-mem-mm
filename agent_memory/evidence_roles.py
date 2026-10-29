@@ -7,7 +7,7 @@ from .joint_selection import (selection_payload, candidate_count, selected_indic
 from .recoverable_options import RecoverableOptionsSystem, RetrySelectionTransport
 from .provider_http import OPENAI_ENDPOINT, ProviderFailure
 
-VERSION = 'tracemem-mm-evidence-roles-v4.7.1-rc1'
+VERSION = 'tracemem-mm-evidence-roles-v4.7.1-rc2'
 ROLE_SYSTEM = (
     'Retrieve a minimal sufficient SET OF ORIGINAL SOURCES for the original query. '
     'Separate two evidence roles in JSON: {"identity":[indices],"facts":[indices]}. '
@@ -33,7 +33,23 @@ ROLE_SYSTEM = (
     'candidate indices, unique within each array and at most eight DISTINCT indices '
     'in total, ordered by relevance within each role. Do not output an answer, '
     'explanation, entity facts, quotes, or invented relationships. The service '
-    'returns complete unchanged original sources for these indices.'
+    'returns complete unchanged original sources for these indices. '
+    'Synthetic examples illustrate ROLE COMBINATIONS ONLY; they are not sources '
+    'for the actual request. Example 1: candidate 4 says "The glass kite is '
+    'called Sorel." Candidate 1 says "Sorel was put in the west cabinet." '
+    'Query: "Where is the glass kite?" Correct JSON: '
+    '{"identity":[4],"facts":[1]}. Returning only [4] loses the location; '
+    'returning only [1] loses the source linking the named object to Sorel. '
+    'Example 2: candidate 3 says "The green whistle is in the linen bag." '
+    'Query: "Where is the green whistle?" Correct JSON: '
+    '{"identity":[3],"facts":[3]}. The same source establishes both roles. '
+    'Example 3: candidate 2 says "The copper figurine is NOT Sorel." '
+    'Candidate 0 says "Sorel was put in the west cabinet." Query: "Where is '
+    'the copper figurine?" Correct JSON: {"identity":[],"facts":[]}. '
+    'A similar name or denied identity cannot transfer the location. The same '
+    'empty result is required when a query asks for an attribute absent from '
+    'all supplied sources. For the ACTUAL request below, use only its candidate '
+    'indices and originals. Never copy the example indices, names or facts.'
 )
 
 

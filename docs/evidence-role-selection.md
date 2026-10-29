@@ -26,5 +26,13 @@ Required independent checks include a pure-name identity bridge, near-name and
 denied-identity distractors, time comparison, direct recall and absent facts.
 Mechanical validity alone cannot establish retrieval quality or score gains.
 
+The first independent real control for rc1 passed direct recall but returned
+identity alone for a pure-name bridge, omitting the visible location source.
+It was stopped and never deployed. The rc2 hypothesis adds three original
+synthetic demonstrations of cross-source roles, a direct source serving both
+roles, and denied identity. It preserves all response shapes and capacities.
+This is a new, unvalidated hypothesis rather than a claim that examples fix
+semantic completeness; new controls must detect copied indices and false links.
+
 Factory: `agent_memory.evidence_roles:create_role_app()` with explicit
 `TRACEMEM_EVIDENCE_ROLES_ENABLED=approved-original-evidence-roles` activation.
