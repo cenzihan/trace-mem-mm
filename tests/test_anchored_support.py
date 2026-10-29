@@ -19,6 +19,14 @@ from test_mem0_native import FakeEmbedding, FakeCards
 
 
 class AnchoredTests(unittest.TestCase):
+    def test_json_mode_has_explicit_instruction_without_relying_on_user_content(self):
+        # The live API rejects json_object mode without the word JSON in messages.
+        # A schema example alone was insufficient in the standalone support prompt.
+        for p in (selection_payload(content_parts('Where?'),[source('Here.')],[]),
+                  anchored_payload(content_parts('Where?'),[source('Here.'),source('There.')],[],[0])[0]):
+            self.assertEqual(p['response_format'],{'type':'json_object'})
+            self.assertIn('json',p['messages'][0]['content'].lower())
+
     def test_missing_alias_is_selectable_zero_without_reselecting_primary(self):
         sources=[source('Amber ferry has identifier Leto64.'),source('Leto64 is at west quay.')]
         t=SequenceTransport([[1],[0]])
