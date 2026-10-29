@@ -85,5 +85,5 @@ class HighDetailNativeTests(unittest.TestCase):
         result=self.search('copper K41 location')
         self.assertEqual(set(text_of(r['content']) for r in result),{'copper alias K41','K41 location cedar'})
         self.t.pick=[]
-        self.assertEqual(self.search('missing event'),[])
+        self.assertEqual(self.search('copper K41 location'),[]) # nonempty pool, explicit empty model choice
         self.assertEqual(len(self.t.calls),2)
