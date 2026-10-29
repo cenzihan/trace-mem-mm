@@ -48,6 +48,25 @@ class Mem0RawSystem(Mem0EvidenceSystem):
     def _retrieval_text(self, payload, parts):
         return text_of(parts)
 
+    context_primary_first = False
+
+    def _context_order(self, rows, order):
+        """Preserve legacy order unless an explicit candidate prioritizes primaries."""
+        by_id = {row[0]: row for row in rows}
+        positions = {(r[2], r[3], r[4]): r[0] for r in rows}
+        expanded = list(dict.fromkeys(order)) if self.context_primary_first else []
+        seen = set(expanded)
+        for rank, mid in enumerate(order):
+            row = by_id[mid]
+            group = [mid]
+            if rank < self.context_anchor_limit:
+                group += [positions.get((row[2], row[3], row[4]+offset)) for offset in (-1, 1)]
+            for candidate in group:
+                if candidate is not None and candidate not in seen:
+                    seen.add(candidate)
+                    expanded.append(candidate)
+        return expanded
+
     def _write_native(self, payload):
         descriptions = []
         for ordinal, message in enumerate(payload['messages']):
@@ -114,17 +133,7 @@ class Mem0RawSystem(Mem0EvidenceSystem):
             fused = ranked(rrf([native_ids, lexical_ids]))
             order = list(dict.fromkeys([*sorted(identities), *fused]))
             order = self._order_sources(payload, parts, rows, order, identities)
-            positions = {(r[2], r[3], r[4]): r[0] for r in rows}
-            expanded, seen = [], set()
-            for rank, mid in enumerate(order):
-                row = by_id[mid]
-                group = [mid]
-                if rank < self.context_anchor_limit:
-                    group += [positions.get((row[2], row[3], row[4]+offset)) for offset in (-1, 1)]
-                for candidate in group:
-                    if candidate is not None and candidate not in seen:
-                        seen.add(candidate)
-                        expanded.append(candidate)
+            expanded = self._context_order(rows, order)
 
             def originals():
                 with self.connect() as db:
