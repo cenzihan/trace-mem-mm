@@ -23,6 +23,8 @@ class SelectedActivationTests(unittest.TestCase):
         self.assertIs(SelectedSourcesSystem._order_sources,RecoverableOptionsSystem._order_sources)
         self.assertIs(SelectedSourcesSystem._select_sources,RecoverableOptionsSystem._select_sources)
         self.assertIs(SelectedSourcesSystem.add,RecoverableOptionsSystem.add)
+        caps=object.__new__(SelectedSourcesSystem).capabilities()
+        self.assertNotIn('same-add-context',caps['retrieval'])
 
 
 @unittest.skipUnless(importlib.util.find_spec('mem0'),'pinned Mem0 required')

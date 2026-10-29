@@ -9,6 +9,7 @@ class SelectedSourcesSystem(RecoverableOptionsSystem):
 
     def capabilities(self):
         return dict(super().capabilities(), version=VERSION,
+                    retrieval='native-raw+BM25+exact-image+joint-selection',
                     same_add_context='disabled-explicit-ablation',
                     exact_image_identity='unchanged-independent-inclusion',
                     calibrated_abstention=False)
