@@ -47,7 +47,7 @@ class PreDispatchLatchTests(unittest.TestCase):
 
 
 class GuardIntegrationTests(ScopedTransportTests):
-    def test_retired_payload_rejection_does_not_poison_other_users(self):
+    def test_retired_owner_rejection_does_not_poison_other_users(self):
         transport = self.make()
         self.http.fail = True
         with request_owner('synthetic-a'):
@@ -59,10 +59,11 @@ class GuardIntegrationTests(ScopedTransportTests):
         token = _adapters.set({'embedding': embed})
         self.addCleanup(_adapters.reset, token)
         adapter = BudgetEmbedding(None)
-        with request_owner('synthetic-b'):
+        with request_owner('synthetic-a'):
             with self.assertRaises(PreDispatchRejection):
                 adapter.embed('fixture-one')
             self.assertFalse(adapter.failed)
+        with request_owner('synthetic-b'):
             adapter.embed('different synthetic input')
         self.assertEqual(self.http.calls, 2)
         with self.ledger.connect() as db:

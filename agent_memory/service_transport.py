@@ -366,17 +366,24 @@ class ServiceTransport:
             rate = VerifiedRate(model=model, checked_at=config['checked_at'], **config['models'][model])
             fingerprint = uuid.uuid4().hex
             payload_sha=hashlib.sha256(_json(payload).encode()).hexdigest()
-            self.operator_recovery.assert_payload(payload_sha)
+            owner = None
             if self.scoped_unknown_enabled:
                 from .scoped_unknown import owner_digest
                 owner=owner_digest()
+            if model == 'text-embedding-v4' and owner is not None:
+                self.operator_recovery.assert_embedding_owner(payload_sha, owner)
+            else:
+                self.operator_recovery.assert_payload(payload_sha)
+            if self.scoped_unknown_enabled:
                 if self.has_scoped_unknown(owner):
                     from .pre_dispatch import PreDispatchRejection
                     raise PreDispatchRejection('user has an unresolved model request')
                 with self.journal.connect() as db:
                     unresolved=[dict(row) for row in db.execute("SELECT * FROM operations WHERE state='unknown'")]
                 for row in unresolved:
-                    if self._valid_scoped_unknown(row) and self._scoped_unknown(row)[1]==payload_sha:
+                    if (self._valid_scoped_unknown(row)
+                            and (model != 'text-embedding-v4' or self._scoped_unknown(row)[0]==owner)
+                            and self._scoped_unknown(row)[1]==payload_sha):
                         from .pre_dispatch import PreDispatchRejection
                         raise PreDispatchRejection('unknown model request cannot be replayed')
             for proof in self.quarantines().values():
