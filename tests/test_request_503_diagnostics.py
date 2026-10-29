@@ -100,3 +100,14 @@ class RequestDiagnosticsTest(unittest.TestCase):
         self.assertNotIn('Bearer test', body_path.read_text(encoding='utf-8'))
         self.assertNotIn('synthetic question', json.dumps(event))
 
+    def test_admission_rejection_records_fixed_reason_without_reading_input(self):
+        self.assertTrue(self.app.admissions.acquire(blocking=False))
+        try:
+            status, _ = self.request({'query':'synthetic question'})
+            self.assertTrue(status.startswith('429 '))
+            event = json.loads((Path(self.temp.name) / 'request-errors.jsonl').read_text())
+            self.assertEqual(event['exceptions'][0]['service_code'], 'admission_full')
+            self.assertIsNone(event['private_input'])
+        finally:
+            self.app.admissions.release()
+

@@ -29,6 +29,15 @@ from .readiness_error import ReadinessFailure
 VERSION = 'tracemem-mm-online-v1.0.0'
 
 
+class ServiceDiagnosticSignal(Exception):
+    ALLOWED = frozenset({'lease_expired','admission_full','queue_timeout'})
+
+    def __init__(self, code):
+        if code not in self.ALLOWED: raise ValueError('invalid service diagnostic')
+        self.code = code
+        super().__init__(code)
+
+
 class ServingSystem(OnlineDenseRerankSystem):
     def add(self, payload):
         validate_add(payload)
@@ -74,6 +83,8 @@ class ServiceApplication(Application):
                 item = {'type':name if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}', name) else 'Other'}
                 if isinstance(current, ReadinessFailure) and current.code in ReadinessFailure.ALLOWED:
                     item['readiness_code'] = current.code
+                if isinstance(current, ServiceDiagnosticSignal) and current.code in ServiceDiagnosticSignal.ALLOWED:
+                    item['service_code'] = current.code
                 code = getattr(current, 'errno', None)
                 codes = set(errno.errorcode)
                 codes.update(getattr(socket, n) for n in dir(socket)
@@ -172,6 +183,7 @@ class ServiceApplication(Application):
     def __call__(self, environ, start_response):
         path = environ.get('PATH_INFO')
         if self.expires_at is not None and time.time() >= self.expires_at:
+            self.record_exception(path,ServiceDiagnosticSignal('lease_expired'),503)
             return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
         if path == '/health' and environ.get('REQUEST_METHOD') == 'GET':
             try:self.transport.ready();self.scorer_health()
@@ -183,13 +195,16 @@ class ServiceApplication(Application):
                 return self.reply(start_response,'503 Service Unavailable','readiness check failed')
         if path in ('/add','/search') and self.authorized(environ):
             if not self.admissions.acquire(blocking=False):
+                self.record_exception(path,ServiceDiagnosticSignal('admission_full'),429)
                 return self.reply(start_response,'429 Too Many Requests','request admission capacity reached',[('Retry-After','5')])
             try:
                 if not self.active.acquire(timeout=self.queue_wait_seconds):
+                    self.record_exception(path,ServiceDiagnosticSignal('queue_timeout'),429)
                     return self.reply(start_response,'429 Too Many Requests','request queue wait exceeded',[('Retry-After','5')])
                 try:
                     # Waiting must never extend the original deployment lease.
                     if self.expires_at is not None and time.time() >= self.expires_at:
+                        self.record_exception(path,ServiceDiagnosticSignal('lease_expired'),503)
                         return self.reply(start_response,'503 Service Unavailable','deployment lease expired')
                     try:self.transport.ready()
                     except ReadinessFailure as exc:
