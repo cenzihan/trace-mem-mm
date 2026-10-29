@@ -98,7 +98,7 @@ def create_scoped_options_app(environ=None):
     from .joint_selection import ScopedSelectionServiceTransport
     class ScopedOptionsSystem(Mem0OptionsSystem):
         def capabilities(self):
-            return dict(super().capabilities(),version='tracemem-mm-mem0-options-v4.3.7-rc1',
+            return dict(super().capabilities(),version='tracemem-mm-mem0-options-v4.3.8-rc1',
                         unknown_isolation='bound-owner-and-payload')
     return create_app(env,_system_type=ScopedOptionsSystem,
                       _transport_type=ScopedSelectionServiceTransport,_stop_at_chat_done=True)

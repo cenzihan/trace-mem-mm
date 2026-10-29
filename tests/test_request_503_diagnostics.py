@@ -111,3 +111,15 @@ class RequestDiagnosticsTest(unittest.TestCase):
         finally:
             self.app.admissions.release()
 
+    def test_wrapped_receipt_transport_records_real_service_shape(self):
+        original = self.app.transport
+        class ReadinessProvider:
+            transport = original
+            def ready(self): pass
+        self.app.transport = ReadinessProvider()
+        status, _ = self.request({'message':'synthetic wrapper test'})
+        self.assertTrue(status.startswith('503 '))
+        event = json.loads((Path(self.temp.name) / 'request-errors.jsonl').read_text())
+        body_path = Path(self.temp.name) / 'private-error-inputs' / (event['private_input'] + '.json')
+        self.assertEqual(json.loads(body_path.read_text())['request']['message'], 'synthetic wrapper test')
+

@@ -73,6 +73,15 @@ class ServiceApplication(Application):
         self.expires_at = expires_at
         self.request_diagnostic_lock = threading.Lock()
 
+    def diagnostic_root(self):
+        """The readiness provider may wrap the original receipt transport."""
+        transport = self.transport
+        root = getattr(transport, 'quarantine_path', None)
+        if root is None:
+            root = getattr(getattr(transport, 'transport', None), 'quarantine_path', None)
+        if root is None: raise AttributeError('diagnostic receipt directory unavailable')
+        return Path(root).parent
+
     def record_exception(self, stage, exc, status, payload=None, response=None):
         """Store operational facts and parsed failing input in separate private files."""
         try:
@@ -107,7 +116,7 @@ class ServiceApplication(Application):
                      'stage':stage if stage in {'/add','/search','/health','readiness'} else 'other',
                      'http_status':status if type(status) is int and 400 <= status <= 599 else None,
                      'exceptions':chain}
-            path = self.transport.quarantine_path.parent / 'request-errors.jsonl'
+            path = self.diagnostic_root() / 'request-errors.jsonl'
             with self.request_diagnostic_lock:
                 if payload is not None:
                     try:
@@ -157,7 +166,7 @@ class ServiceApplication(Application):
         line = (json.dumps({'at':datetime.now(timezone.utc).isoformat(),
                             'reason':category}, separators=(',', ':')) + '\n').encode()
         try:
-            path = self.transport.quarantine_path.parent / 'request-503-reasons.jsonl'
+            path = self.diagnostic_root() / 'request-503-reasons.jsonl'
             with self.request_diagnostic_lock:
                 with path.open('ab') as f:
                     if os.fstat(f.fileno()).st_size + len(line) > 256 * 1024: return
