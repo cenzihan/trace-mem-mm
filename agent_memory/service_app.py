@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import threading
 import time
+from datetime import datetime, timezone
 
 from .app import Application
 from .container_app import read_service_token
@@ -56,6 +57,34 @@ class ServiceApplication(Application):
         self.queue_wait_seconds = queue_wait_seconds
         self.scorer_health = scorer_health or self.check_scorer
         self.expires_at = expires_at
+        self.request_diagnostic_lock = threading.Lock()
+
+    def record_request_503(self, result):
+        """Record only a fixed reason, never a request, response, or identifier."""
+        reasons = {'unresolved Add; no automatic replay':'unresolved_same_add',
+                   'user has unresolved Add':'unresolved_user_add',
+                   'retired or invalid source scope':'retired_source',
+                   'original source index incomplete':'incomplete_index',
+                   'native result/source mapping mismatch':'mapping_mismatch',
+                   'source disappeared during search':'source_disappeared'}
+        category = 'other'
+        try:
+            parsed = json.loads(b''.join(result))
+            if isinstance(parsed, dict):
+                error = parsed.get('error')
+                if isinstance(error, str): category = reasons.get(error, 'other')
+        except (ValueError, TypeError, UnicodeError):
+            pass
+        line = (json.dumps({'at':datetime.now(timezone.utc).isoformat(),
+                            'reason':category}, separators=(',', ':')) + '\n').encode()
+        try:
+            path = self.transport.quarantine_path.parent / 'request-503-reasons.jsonl'
+            with self.request_diagnostic_lock:
+                with path.open('ab') as f:
+                    if os.fstat(f.fileno()).st_size + len(line) > 256 * 1024: return
+                    f.write(line)
+        except (OSError, AttributeError, TypeError):
+            pass
 
     @staticmethod
     def reply(start_response, status, error, extra=()):
@@ -95,7 +124,14 @@ class ServiceApplication(Application):
                     except ReadinessFailure as exc:
                         return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention',[('X-TraceMem-Readiness',exc.code)])
                     except Exception:return self.reply(start_response,'503 Service Unavailable','model budget or unresolved attempt requires operator attention')
-                    return super().__call__(environ,start_response)
+                    response_status = []
+                    def observe_status(status, headers, exc_info=None):
+                        response_status.append(status)
+                        return start_response(status, headers, exc_info) if exc_info is not None else start_response(status, headers)
+                    response = super().__call__(environ,observe_status)
+                    if response_status and response_status[0].startswith('503 '):
+                        self.record_request_503(response)
+                    return response
                 finally:self.active.release()
             finally:self.admissions.release()
         return super().__call__(environ,start_response)
