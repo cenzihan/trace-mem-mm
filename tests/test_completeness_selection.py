@@ -22,6 +22,9 @@ class SequenceTransport:
         self.selections = iter(selections)
         self.calls = []
 
+    def ready(self):
+        pass  # Match the service transport's readiness interface in native tests.
+
     def __call__(self, endpoint, payload):
         self.calls.append(copy.deepcopy(payload))
         value = next(self.selections)
