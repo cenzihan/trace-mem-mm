@@ -88,6 +88,8 @@ class _ServiceJournal(_Journal):
             if current is None or current['state']!='ready' or not never_dispatched(current):
                 raise EmbeddingExecutorBlocked('operation already attempted; no automatic replay')
             for row in db.execute("SELECT * FROM operations WHERE scope=? AND state NOT IN ('ready','complete')",(current['scope'],)):
+                retry_permits=getattr(self,'retry_permits',None)
+                if retry_permits and retry_permits(dict(row)):continue
                 recovery=getattr(self,'operator_recovery',None)
                 if recovery and recovery.permits(dict(row)):continue
                 scoped=getattr(self,'scoped_unknown_permits',None)
@@ -106,6 +108,7 @@ class ServiceTransport:
     output_token_cap = 512
     receipt_scope = 'official-service-v1'
     scoped_unknown_enabled = False
+    retry_failed_requests = False
 
     def normalize_result(self, value, model):
         return omit_nontext_quote_metadata(value) if model=='gpt-4o-mini' else value
@@ -154,6 +157,8 @@ class ServiceTransport:
         self.journal.operator_recovery = self.operator_recovery
         if self.scoped_unknown_enabled:
             self.journal.scoped_unknown_permits = self._valid_scoped_unknown
+        if self.retry_failed_requests:
+            self.journal.retry_permits = self._accounted_terminal_failure
         self.readers = readers
         self.lock = threading.Lock()
 
@@ -179,7 +184,17 @@ class ServiceTransport:
             proofs[fingerprint]=proof
         return proofs
 
+    def _accounted_terminal_failure(self, row):
+        # Retry permission does not settle or rewrite the old attempt.
+        if row['state'] not in ('unknown','failed'):return False
+        if not row['attempt_id']:return False
+        with self.ledger.connect() as db:
+            a=db.execute('SELECT accounted,reserved FROM attempts WHERE id=?',(row['attempt_id'],)).fetchone()
+            o=db.execute('SELECT category FROM provider_observations WHERE attempt_id=?',(row['attempt_id'],)).fetchone()
+        return bool(a and o and a[0]>=a[1] and o[0]!='success')
+
     def assert_source_allowed(self,payload):
+        if self.retry_failed_requests:return
         self.operator_recovery.assert_user(payload['user_id'])
         user_sha=hashlib.sha256(payload['user_id'].encode()).hexdigest()
         if any(p['blocked_user_sha256']==user_sha for p in self.quarantines().values()):
@@ -238,6 +253,7 @@ class ServiceTransport:
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
             retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
         for row in rows:
+            if self.retry_failed_requests and self._accounted_terminal_failure(row):continue
             recovery=recovery_proofs.get(row['fingerprint'])
             if recovery:
                 from .operator_recovery import row_digest
@@ -370,11 +386,13 @@ class ServiceTransport:
             if self.scoped_unknown_enabled:
                 from .scoped_unknown import owner_digest
                 owner=owner_digest()
-            if model == 'text-embedding-v4' and owner is not None:
+            if self.retry_failed_requests:
+                pass  # Human-authorized replay, with a fresh billed attempt.
+            elif model == 'text-embedding-v4' and owner is not None:
                 self.operator_recovery.assert_embedding_owner(payload_sha, owner)
             else:
                 self.operator_recovery.assert_payload(payload_sha)
-            if self.scoped_unknown_enabled:
+            if self.scoped_unknown_enabled and not self.retry_failed_requests:
                 if self.has_scoped_unknown(owner):
                     from .pre_dispatch import PreDispatchRejection
                     raise PreDispatchRejection('user has an unresolved model request')
@@ -386,7 +404,7 @@ class ServiceTransport:
                             and self._scoped_unknown(row)[1]==payload_sha):
                         from .pre_dispatch import PreDispatchRejection
                         raise PreDispatchRejection('unknown model request cannot be replayed')
-            for proof in self.quarantines().values():
+            for proof in ([] if self.retry_failed_requests else self.quarantines().values()):
                 original=json.loads(self.journal.row(proof['fingerprint'])['manifest'])
                 if original.get('payload_sha256')==payload_sha:
                     from .pre_dispatch import PreDispatchRejection

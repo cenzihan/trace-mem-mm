@@ -102,3 +102,12 @@ def create_scoped_options_app(environ=None):
                         unknown_isolation='bound-owner-and-payload')
     return create_app(env,_system_type=ScopedOptionsSystem,
                       _transport_type=ScopedSelectionServiceTransport,_stop_at_chat_done=True)
+
+
+def create_retry_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_RETRY_ENABLED')!='approved-five-retries-fresh-memory':
+        raise ValueError('explicit billed retry activation required')
+    from .recoverable_options import RecoverableOptionsSystem,RetrySelectionTransport
+    return create_app(env,_system_type=RecoverableOptionsSystem,
+                      _transport_type=RetrySelectionTransport,_stop_at_chat_done=True)
