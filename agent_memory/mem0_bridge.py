@@ -19,6 +19,9 @@ from .protocol import ContractError,canonical,content_parts,text_of,validate_add
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 from .caption_image import caption_part
+from .scoped_unknown import bound_request
+from .readiness_error import ReadinessFailure
+from .pre_dispatch import PreDispatchRejection
 
 VERSION='tracemem-mm-mem0-v3.0.3'
 MEM0_VERSION='2.2.1'
@@ -54,6 +57,10 @@ class BudgetEmbedding:
         vectors=[]
         try:
             for start in range(0,len(flat),10):vectors.extend(self.embedding.embed(flat[start:start+10]))
+        except PreDispatchRejection:
+            # This particular provider request was rejected before journal claim.
+            # The enclosing Add still records its failure and blocks replay.
+            raise
         except BaseException:
             self.failed=True; raise
         out=[]; cursor=0
@@ -136,8 +143,10 @@ class Mem0System(MemoryStore):
             admission_capacity=16,queue_wait_seconds=30,receipt_content_logging=False)
 
     def ready(self):
-        if self.native.embedding_model.failed or self.native.llm.failed:
-            raise ValueError('SDK provider failure requires operator reconciliation')
+        if self.native.embedding_model.failed:
+            raise ReadinessFailure('embedding_latch')
+        if self.native.llm.failed:
+            raise ReadinessFailure('llm_latch')
         self.transport.ready()
 
     def _describe(self,parts):
@@ -174,6 +183,7 @@ class Mem0System(MemoryStore):
             try:check(payload)
             except ValueError:raise ContractError('retired or invalid source scope',503) from None
 
+    @bound_request
     def add(self,payload):
         validate_add(payload)
         self._assert_user_allowed(payload)
@@ -185,8 +195,10 @@ class Mem0System(MemoryStore):
                 old=db.execute('SELECT digest,state FROM add_operations WHERE user_id=? AND request_id=?',(uid,req)).fetchone()
                 if old:
                     if old[0]!=digest:raise ContractError('request_id conflict',409)
-                    if old[1]!='complete':raise ContractError('unresolved Add; no automatic replay',503)
-                    return self._persist_add(db,payload)
+                    if old[1]=='complete':return self._persist_add(db,payload)
+                    if not getattr(self,'recoverable_add',False):raise ContractError('unresolved Add; no automatic replay',503)
+                    self._clear_partial_native(payload)
+                    db.execute('DELETE FROM add_operations WHERE user_id=? AND request_id=?',(uid,req))
                 if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'",(uid,)).fetchone():
                     raise ContractError('user has unresolved Add',503)
                 db.execute('INSERT INTO add_operations VALUES(?,?,?,?,?)',(uid,req,digest,'preparing',owner))
@@ -199,6 +211,13 @@ class Mem0System(MemoryStore):
                     db.execute("UPDATE add_operations SET state='complete' WHERE user_id=? AND request_id=? AND owner_token=?",(uid,req,owner))
                 return response
             except BaseException:
+                if getattr(self,'recoverable_add',False):
+                    self._clear_partial_native(payload)
+                    with self.connect() as db:
+                        db.execute("DELETE FROM add_operations WHERE user_id=? AND request_id=? AND owner_token=?",(uid,req,owner))
+                    self.native.embedding_model.failed=False
+                    self.native.llm.failed=False
+                    raise
                 with self.connect() as db:
                     db.execute("UPDATE add_operations SET state='uncertain' WHERE user_id=? AND request_id=? AND state='preparing'",(uid,req))
                 raise

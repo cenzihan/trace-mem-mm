@@ -27,7 +27,7 @@ def create_app(environ=None, *, _system_type=Mem0System,
     journal=RUNTIME/'bailian-v2-service'/'provider-receipts'
     base=_transport_type(SHARED_LEDGER,env['TRACEMEM_LEDGER_AUTHORITY_FILE'],
         env['TRACEMEM_VERIFIED_PRICES_FILE'],journal,readers,
-        http=(_http_type() if _http_type else NativeHTTPS(handshake_attempts=3,stop_at_chat_done=_stop_at_chat_done)))
+        http=(_http_type() if _http_type else NativeHTTPS(handshake_attempts=6,stop_at_chat_done=_stop_at_chat_done)))
     expires=int(env['TRACEMEM_SERVICE_EXPIRES_AT'])
     if not time.time()<expires<=1793896200:raise ValueError('original lease must not be extended')
     store=_system_type(state/'memory.sqlite',transport=base,
@@ -88,3 +88,26 @@ def create_options_app(environ=None):
     from .joint_selection import SelectionServiceTransport
     return create_app(env,_system_type=Mem0OptionsSystem,
                       _transport_type=SelectionServiceTransport,_stop_at_chat_done=True)
+
+
+def create_scoped_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_SCOPED_ENABLED')!='approved-native-mem0-scoped':
+        raise ValueError('explicit scoped unknown candidate activation required')
+    from .mem0_options import Mem0OptionsSystem
+    from .joint_selection import ScopedSelectionServiceTransport
+    class ScopedOptionsSystem(Mem0OptionsSystem):
+        def capabilities(self):
+            return dict(super().capabilities(),version='tracemem-mm-mem0-options-v4.3.9-rc1',
+                        unknown_isolation='bound-owner-and-payload')
+    return create_app(env,_system_type=ScopedOptionsSystem,
+                      _transport_type=ScopedSelectionServiceTransport,_stop_at_chat_done=True)
+
+
+def create_retry_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_RETRY_ENABLED')!='approved-five-retries-fresh-memory':
+        raise ValueError('explicit billed retry activation required')
+    from .recoverable_options import RecoverableOptionsSystem,RetrySelectionTransport
+    return create_app(env,_system_type=RecoverableOptionsSystem,
+                      _transport_type=RetrySelectionTransport,_stop_at_chat_done=True)
