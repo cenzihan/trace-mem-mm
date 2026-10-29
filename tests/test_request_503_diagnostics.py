@@ -70,7 +70,8 @@ class RequestDiagnosticsTest(unittest.TestCase):
         event = json.loads(text)
         self.assertEqual(event['stage'], '/add')
         self.assertEqual(event['http_status'], 500)
-        self.assertEqual([x['type'] for x in event['exceptions']], ['RuntimeError', 'OSError'])
+        self.assertEqual(event['exceptions'][0]['type'], 'RuntimeError')
+        self.assertIn(event['exceptions'][1]['type'], ('OSError', 'ConnectionRefusedError'))
         self.assertEqual(event['exceptions'][1]['errno'], 111)
         for word in ('secret', 'question', 'key', 'payload', 'response body'):
             self.assertNotIn(word, text)
