@@ -30,6 +30,7 @@ class RoleTests(unittest.TestCase):
         self.assertEqual(role_indices({'identity':[0,2],'facts':[2,1]},3),[2,1,0])
         self.assertEqual(role_indices({'identity':[1],'facts':[1]},2),[1])
         self.assertEqual(role_indices({'identity':[],'facts':[]},2),[])
+        self.assertEqual(role_indices({'identity':[0],'facts':[]},2),[])
 
     def test_contract_rejects_malformed_indices_extra_answers_and_combined_overflow(self):
         for bad in [{'identity':[True],'facts':[]},{'identity':[0,0],'facts':[]},
@@ -70,6 +71,7 @@ class RoleTests(unittest.TestCase):
         # A partial but structurally valid result stays visible to independent
         # quality checks instead of being padded, guessed or converted to503.
         self.assertEqual(RoleSelector(RoleFixtureTransport({'identity':[],'facts':[1]})).select(content_parts('q'),rows),[1])
+        self.assertEqual(RoleSelector(RoleFixtureTransport({'identity':[0],'facts':[]})).select(content_parts('q'),rows),[])
 
     def test_empty_and_failures_keep_original_retry_accounting_scope(self):
         rows=[source()]

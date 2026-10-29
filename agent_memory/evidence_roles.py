@@ -7,7 +7,7 @@ from .joint_selection import (selection_payload, candidate_count, selected_indic
 from .recoverable_options import RecoverableOptionsSystem, RetrySelectionTransport
 from .provider_http import OPENAI_ENDPOINT, ProviderFailure
 
-VERSION = 'tracemem-mm-evidence-roles-v4.7.1-rc2'
+VERSION = 'tracemem-mm-evidence-roles-v4.7.1-rc3'
 ROLE_SYSTEM = (
     'Retrieve a minimal sufficient SET OF ORIGINAL SOURCES for the original query. '
     'Separate two evidence roles in JSON: {"identity":[indices],"facts":[indices]}. '
@@ -76,9 +76,11 @@ def role_indices(value, count):
     facts = selected_indices({'selected':value['facts']}, count)
     result = list(dict.fromkeys([*facts, *identity]))
     if len(result) > 8:raise ValueError('combined evidence capacity exceeded')
-    # Structural validation is not semantic proof. Do not invent a missing role,
-    # automatically add neighbours, or hide a valid partial model response here.
-    return result
+    # Identity alone does not supply the attribute/event requested by the query.
+    # This explicit retrieval policy yields a valid empty result, not an error,
+    # fallback, permanent failure latch or fabricated missing fact. Validate both
+    # roles first so malformed indices cannot be hidden by an empty facts array.
+    return result if facts else []
 
 
 class RoleBudgetedTransport(SelectionBudgetedTransport):
@@ -128,7 +130,8 @@ class RoleSystem(RecoverableOptionsSystem):
         return dict(super().capabilities(), version=VERSION,
             selection='single-pass-identity-and-requested-fact-source-roles',
             selection_max_calls_per_search=1, selection_max_selected=8,
-            selection_text_prefix_bytes=1500, role_labels_are_semantic_proof=False)
+            selection_text_prefix_bytes=1500, role_labels_are_semantic_proof=False,
+            identity_without_requested_facts='empty-selection-not-failure')
 
 
 def create_role_app(environ=None):
