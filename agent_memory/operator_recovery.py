@@ -93,3 +93,16 @@ class OperatorRecovery:
         if any(p['payload_sha256']==payload_sha for p in self.proofs().values()):
             from .pre_dispatch import PreDispatchRejection
             raise PreDispatchRejection('retired model payload cannot be replayed')
+
+    def assert_embedding_owner(self, payload_sha, owner_sha):
+        """Permit identical embedding content for a distinct, non-retired owner.
+
+        The old attempt and its reservation remain unchanged. This does not
+        permit the old owner to retry, or permit unscoped/generative requests.
+        """
+        from .pre_dispatch import PreDispatchRejection
+        if not hash_string(owner_sha):
+            raise PreDispatchRejection('embedding owner missing or invalid')
+        for proof in self.proofs().values():
+            if owner_sha in proof['retired_user_sha256']:
+                raise PreDispatchRejection('retired owner cannot replay embedding')

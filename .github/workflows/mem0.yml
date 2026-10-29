@@ -1,7 +1,7 @@
 name: Native Mem0 container validation
 on:
   push:
-    branches: [main, codex/mem0-night-baseline, codex/native-transport-isolation, codex/mem0-streaming, codex/mem0-source-evidence, codex/mem0-stream-completion, codex/mem0-raw-source, codex/mem0-visual-rerank, codex/hosted-failure-diagnostics, codex/mem0-joint-selection, codex/mem0-options-context, codex/operator-scoped-recovery, codex/known-failure-recovery, codex/embedding-predispatch-latch, codex/request-503-diagnostics]
+    branches: [main, codex/mem0-night-baseline, codex/native-transport-isolation, codex/mem0-streaming, codex/mem0-source-evidence, codex/mem0-stream-completion, codex/mem0-raw-source, codex/mem0-visual-rerank, codex/hosted-failure-diagnostics, codex/mem0-joint-selection, codex/mem0-options-context, codex/operator-scoped-recovery, codex/known-failure-recovery, codex/embedding-predispatch-latch, codex/request-503-diagnostics, codex/embedding-owner-scope]
     paths: ['agent_memory/**', 'tests/**', 'Dockerfile.mem0', 'requirements*.txt', '.github/workflows/mem0.yml', '.dockerignore']
   workflow_dispatch:
 permissions:
