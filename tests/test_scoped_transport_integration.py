@@ -41,7 +41,7 @@ class ScopedTransportTests(unittest.TestCase):
     def make(self):
         return ScopedTransport(self.ledger.path,self.authority,self.prices,self.p/'receipts',{},http=self.http,offline_test=True)
 
-    def test_unknown_owner_isolated_other_user_runs_and_old_payload_never_replayed(self):
+    def test_unknown_owner_isolated_other_user_can_embed_equal_content(self):
         t=self.make();self.http.fail=True
         with request_owner('user-a'):
             with self.assertRaises(ProviderFailure): t(BAILIAN_BEIJING_ENDPOINT,self.payload)
@@ -50,12 +50,12 @@ class ScopedTransportTests(unittest.TestCase):
         with request_owner('user-a'):
             with self.assertRaises(ValueError):t(BAILIAN_BEIJING_ENDPOINT,dict(self.payload,input=['new text']))
         with request_owner('user-b'):
-            with self.assertRaises(ValueError):t(BAILIAN_BEIJING_ENDPOINT,self.payload)
+            t(BAILIAN_BEIJING_ENDPOINT,self.payload)
             t(BAILIAN_BEIJING_ENDPOINT,dict(self.payload,input=['different']))
-        self.assertEqual(self.http.calls,2)
+        self.assertEqual(self.http.calls,3)
         with self.ledger.connect() as db:
             rows=db.execute('select status,reserved,accounted from attempts order by rowid').fetchall()
-        self.assertEqual(rows[0][0],'uncertain');self.assertEqual(rows[0][1],rows[0][2]);self.assertEqual(rows[1][0],'settled')
+        self.assertEqual(rows[0][0],'uncertain');self.assertEqual(rows[0][1],rows[0][2]);self.assertEqual(rows[1][0],'settled');self.assertEqual(rows[2][0],'settled')
         with t.journal.connect() as db:
             rows=db.execute('select state,manifest from operations order by rowid').fetchall()
         self.assertEqual(rows[0][0],'unknown');self.assertNotIn('user-a',rows[0][1]);self.assertNotIn('fixture-one',rows[0][1])

@@ -381,7 +381,9 @@ class ServiceTransport:
                 with self.journal.connect() as db:
                     unresolved=[dict(row) for row in db.execute("SELECT * FROM operations WHERE state='unknown'")]
                 for row in unresolved:
-                    if self._valid_scoped_unknown(row) and self._scoped_unknown(row)[1]==payload_sha:
+                    if (self._valid_scoped_unknown(row)
+                            and (model != 'text-embedding-v4' or self._scoped_unknown(row)[0]==owner)
+                            and self._scoped_unknown(row)[1]==payload_sha):
                         from .pre_dispatch import PreDispatchRejection
                         raise PreDispatchRejection('unknown model request cannot be replayed')
             for proof in self.quarantines().values():
