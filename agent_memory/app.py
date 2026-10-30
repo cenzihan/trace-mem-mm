@@ -57,6 +57,8 @@ class Application:
                     payload = json.loads(raw.decode("utf-8"), parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
                 except (UnicodeError, ValueError) as exc:
                     raise ContractError("invalid JSON", 400) from exc
+                # Do not retain a second full body throughout model waits/commit.
+                del raw
                 result = self.store.add(payload) if path == "/add" else self.store.search(payload)
         except ContractError as exc:
             status, result = exc.status, {"error": str(exc)}

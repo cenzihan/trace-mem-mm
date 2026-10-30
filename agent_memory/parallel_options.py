@@ -29,7 +29,9 @@ its lane until it really exits, including when all bounded retries are exhausted
 """
     lane_wait_seconds = 120
 
-    def __init__(self, *args, http_factory=None, **kwargs):
+    def __init__(self, *args, http_factory=None, lane_count=4, **kwargs):
+        if type(lane_count) is not int or not 1 <= lane_count <= 4:
+            raise ValueError('provider lanes must be 1..4')
         super().__init__(*args, **kwargs)
         template = self.http
         if http_factory is None:
@@ -37,8 +39,8 @@ its lane until it really exits, including when all bounded retries are exhausted
                 raise ValueError('parallel transport requires isolated native HTTP lanes')
             http_factory = lambda: NativeHTTPS(template.handshake_attempts,
                                                stop_at_chat_done=template.stop_at_chat_done)
-        self._lanes = queue.Queue(maxsize=4)
-        for _ in range(4):
+        self._lanes = queue.Queue(maxsize=lane_count)
+        for _ in range(lane_count):
             http = http_factory()
             if bool(getattr(http, 'is_fake_http', False)) != self.offline_test:
                 raise ValueError('parallel HTTP execution mode mismatch')
