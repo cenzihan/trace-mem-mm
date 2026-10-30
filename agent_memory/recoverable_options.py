@@ -1,4 +1,5 @@
 """Explicit human-authorized bounded retries; every attempt retains its charge."""
+from contextlib import nullcontext
 import hashlib
 import time
 from .joint_selection import ScopedSelectionServiceTransport
@@ -52,7 +53,7 @@ class RecoverableOptionsSystem(Mem0OptionsSystem):
 
     def search(self, payload):
         # A failed query must not poison all later requests through SDK flags.
-        with self.lock:
+        with (nullcontext() if getattr(self, 'parallel_selection', False) else self.lock):
             self.native.embedding_model.failed=False
             self.native.llm.failed=False
             try:return super().search(payload)

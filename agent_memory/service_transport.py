@@ -3,6 +3,7 @@
 No second allowance or experiment-grant reset. Successful raw responses are
 discarded after validation; accounting keeps only hashes and usage metadata.
 """
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
@@ -88,6 +89,8 @@ class _ServiceJournal(_Journal):
             if current is None or current['state']!='ready' or not never_dispatched(current):
                 raise EmbeddingExecutorBlocked('operation already attempted; no automatic replay')
             for row in db.execute("SELECT * FROM operations WHERE scope=? AND state NOT IN ('ready','complete')",(current['scope'],)):
+                active=getattr(self,'runtime_active',None)
+                if active and active(dict(row)):continue
                 retry_permits=getattr(self,'retry_permits',None)
                 if retry_permits and retry_permits(dict(row)):continue
                 recovery=getattr(self,'operator_recovery',None)
@@ -253,6 +256,7 @@ class ServiceTransport:
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
             retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
         for row in rows:
+            if self._runtime_active(row):continue
             if self.retry_failed_requests and self._accounted_terminal_failure(row):continue
             recovery=recovery_proofs.get(row['fingerprint'])
             if recovery:
@@ -371,8 +375,15 @@ class ServiceTransport:
         except OSError:return False
         return True
 
+    def _runtime_active(self, row):
+        return False
+
+    def _attempt_scope(self, fingerprint):
+        return nullcontext()
+
     def __call__(self, endpoint, payload):
-        with self.lock:
+        fingerprint = uuid.uuid4().hex
+        with self.lock, self._attempt_scope(fingerprint):
             self.ready()
             model = payload.get('model')
             endpoints = {'gpt-4o-mini': OPENAI_ENDPOINT, 'text-embedding-v4': BAILIAN_BEIJING_ENDPOINT}
@@ -380,7 +391,6 @@ class ServiceTransport:
                 raise ValueError('fixed academic models and endpoints required')
             config = self.prices()
             rate = VerifiedRate(model=model, checked_at=config['checked_at'], **config['models'][model])
-            fingerprint = uuid.uuid4().hex
             payload_sha=hashlib.sha256(_json(payload).encode()).hexdigest()
             owner = None
             if self.scoped_unknown_enabled:

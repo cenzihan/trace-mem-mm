@@ -59,14 +59,17 @@ class ServingSystem(OnlineDenseRerankSystem):
 
 class ServiceApplication(Application):
     def __init__(self, store, transport, key, *, scorer_health=None, expires_at=None,
-                 admission_capacity=1, queue_wait_seconds=0):
+                 admission_capacity=1, queue_wait_seconds=0, execution_capacity=1):
         if type(admission_capacity) is not int or not 1 <= admission_capacity <= 16:
             raise ValueError('admission capacity must be 1..16')
-        if not isinstance(queue_wait_seconds, (int, float)) or not 0 <= queue_wait_seconds <= 30:
-            raise ValueError('queue wait must be 0..30 seconds')
+        if type(execution_capacity) is not int or not 1 <= execution_capacity <= admission_capacity:
+            raise ValueError('execution capacity must fit admitted requests')
+        max_queue_wait = 120 if execution_capacity > 1 else 30
+        if not isinstance(queue_wait_seconds, (int, float)) or not 0 <= queue_wait_seconds <= max_queue_wait:
+            raise ValueError('queue wait outside bounded execution profile')
         super().__init__(store, auth_mode='Bearer', key=key)
         self.transport = transport
-        self.active = threading.Lock()
+        self.active = threading.BoundedSemaphore(execution_capacity)
         self.admissions = threading.BoundedSemaphore(admission_capacity)
         self.queue_wait_seconds = queue_wait_seconds
         self.scorer_health = scorer_health or self.check_scorer

@@ -15,7 +15,8 @@ from .service_app import ServiceApplication
 
 
 def create_app(environ=None, *, _system_type=Mem0System,
-               _transport_type=Mem0ServiceTransport,_stop_at_chat_done=False,_http_type=None):
+               _transport_type=Mem0ServiceTransport,_stop_at_chat_done=False,_http_type=None,
+               _execution_capacity=1):
     env=os.environ if environ is None else environ
     if env.get('TRACEMEM_MEM0_ENABLED')!='approved-native-mem0-night':raise ValueError('explicit native activation required')
     state=Path(env['TRACEMEM_SERVICE_STATE']).resolve()
@@ -34,7 +35,9 @@ def create_app(environ=None, *, _system_type=Mem0System,
         embedding=TextEmbeddingV4(BAILIAN_BEIJING_ENDPOINT,base,dimensions=256),
         card_adapter=VerifiedQuoteCards(base,image_detail='low',structured_output=True))
     return ServiceApplication(store,store,read_service_token(env['TRACEMEM_AUTH_TOKEN_FILE']),
-        scorer_health=lambda:None,expires_at=expires,admission_capacity=16,queue_wait_seconds=30)
+        scorer_health=lambda:None,expires_at=expires,admission_capacity=16,
+        queue_wait_seconds=120 if _execution_capacity > 1 else 30,
+        execution_capacity=_execution_capacity)
 
 
 def create_evidence_app(environ=None):
@@ -111,3 +114,15 @@ def create_retry_options_app(environ=None):
     from .recoverable_options import RecoverableOptionsSystem,RetrySelectionTransport
     return create_app(env,_system_type=RecoverableOptionsSystem,
                       _transport_type=RetrySelectionTransport,_stop_at_chat_done=True)
+
+
+def create_parallel_retry_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_RETRY_ENABLED')!='approved-five-retries-fresh-memory':
+        raise ValueError('explicit billed retry activation required')
+    if env.get('TRACEMEM_PARALLEL_ENABLED')!='bounded-embedding-preparation':
+        raise ValueError('explicit parallel deployment activation required')
+    from .parallel_options import ParallelOptionsSystem, ParallelRetryTransport
+    return create_app(env, _system_type=ParallelOptionsSystem,
+                      _transport_type=ParallelRetryTransport, _stop_at_chat_done=True,
+                      _execution_capacity=4)

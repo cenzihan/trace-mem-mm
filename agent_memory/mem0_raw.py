@@ -3,6 +3,7 @@
 Text embeddings use the same academic adapter and journal. Images are archived
 unchanged and match by identity only; this mode has no image semantic model.
 """
+from contextlib import nullcontext
 import hashlib
 import json
 import math
@@ -76,62 +77,71 @@ class Mem0RawSystem(Mem0EvidenceSystem):
         parts = validate_search(payload)
         self._assert_user_allowed(payload)
         uid, query = payload['user_id'], self._retrieval_text(payload, parts)
-        with self.lock:
-            self.ready()
-            with self.connect() as db:
-                if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'", (uid,)).fetchone():
-                    raise ContractError('user has unresolved Add', 503)
-                rows = db.execute('''SELECT m.id,m.created_at,m.session_id,m.request_id,
-                    m.ordinal,i.indexed_text FROM memories m
-                    LEFT JOIN mem0_source_index i ON i.memory_id=m.id
-                    WHERE m.user_id=? ORDER BY m.id''', (uid,)).fetchall()
-                if any(row[5] is None for row in rows):
-                    raise ContractError('original source index incomplete', 503)
-                identities = set()
-                for digest in image_hashes(parts):
-                    identities.update(r[0] for r in db.execute('''SELECT e.memory_id
-                        FROM evidence e JOIN memories m ON m.id=e.memory_id
-                        WHERE m.user_id=? AND e.sha256=?''', (uid, digest)))
-            if not rows:
-                return {'data': []}
-            by_id = {row[0]: row for row in rows}
-            native_ids = []
-            if query.strip() and any(row[5].strip() for row in rows):
-                result = self.native.search(query, filters={'user_id': native_scope(uid)},
-                                            top_k=100, rerank=False)
-                self.ready()  # SDK may swallow a failed optional entity embedding.
-                for value in result['results']:
-                    score = value.get('score')
-                    mid = value.get('metadata', {}).get('tracemem_source_id')
-                    if (value.get('user_id') != native_scope(uid) or mid not in by_id or
-                            value.get('memory') != by_id[mid][5] or
-                            type(score) not in (float, int) or not math.isfinite(score)):
-                        raise ContractError('native result/source mapping mismatch', 503)
-                    if mid not in native_ids:
-                        native_ids.append(mid)
-            lexical = bm25(query, {r[0]: r[5] for r in rows})
-            lexical_ids = ranked({mid: score for mid, score in lexical.items() if score > 0})
-            fused = ranked(rrf([native_ids, lexical_ids]))
-            order = list(dict.fromkeys([*sorted(identities), *fused]))
-            order = self._order_sources(payload, parts, rows, order, identities)
-            positions = {(r[2], r[3], r[4]): r[0] for r in rows}
-            expanded, seen = [], set()
-            for rank, mid in enumerate(order):
-                row = by_id[mid]
-                group = [mid]
-                if rank < self.context_anchor_limit:
-                    group += [positions.get((row[2], row[3], row[4]+offset)) for offset in (-1, 1)]
-                for candidate in group:
-                    if candidate is not None and candidate not in seen:
-                        seen.add(candidate)
-                        expanded.append(candidate)
+        with (nullcontext() if getattr(self, 'parallel_selection', False) else self.lock):
+            with self.lock:
+                rows, identities, native_ids = self._search_snapshot(payload, parts, uid, query)
+            if not rows:return {'data': []}
+            return self._search_pack(payload, parts, uid, query, rows, identities, native_ids)
 
-            def originals():
-                with self.connect() as db:
-                    for mid in expanded:
-                        value = db.execute('''SELECT content,created_at FROM memories
-                            WHERE user_id=? AND id=?''', (uid, mid)).fetchone()
-                        if value is None:
-                            raise ContractError('source disappeared during search', 503)
-                        yield dict(id=mid, content=json.loads(value[0]), created_at=value[1])
-            return {'data': pack_mixed(originals(), [], min(payload['top_k'], 100))}
+    def _search_snapshot(self, payload, parts, uid, query):
+        self.ready()
+        with self.connect() as db:
+            if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'", (uid,)).fetchone():
+                raise ContractError('user has unresolved Add', 503)
+            rows = db.execute('''SELECT m.id,m.created_at,m.session_id,m.request_id,
+                m.ordinal,i.indexed_text FROM memories m
+                LEFT JOIN mem0_source_index i ON i.memory_id=m.id
+                WHERE m.user_id=? ORDER BY m.id''', (uid,)).fetchall()
+            if any(row[5] is None for row in rows):
+                raise ContractError('original source index incomplete', 503)
+            identities = set()
+            for digest in image_hashes(parts):
+                identities.update(r[0] for r in db.execute('''SELECT e.memory_id
+                    FROM evidence e JOIN memories m ON m.id=e.memory_id
+                    WHERE m.user_id=? AND e.sha256=?''', (uid, digest)))
+        if not rows:return rows, identities, []
+        by_id = {row[0]: row for row in rows}
+        native_ids = []
+        if query.strip() and any(row[5].strip() for row in rows):
+            result = self.native.search(query, filters={'user_id': native_scope(uid)},
+                                        top_k=100, rerank=False)
+            self.ready()  # SDK may swallow a failed optional entity embedding.
+            for value in result['results']:
+                score = value.get('score')
+                mid = value.get('metadata', {}).get('tracemem_source_id')
+                if (value.get('user_id') != native_scope(uid) or mid not in by_id or
+                        value.get('memory') != by_id[mid][5] or
+                        type(score) not in (float, int) or not math.isfinite(score)):
+                    raise ContractError('native result/source mapping mismatch', 503)
+                if mid not in native_ids:
+                    native_ids.append(mid)
+        return rows, identities, native_ids
+
+    def _search_pack(self, payload, parts, uid, query, rows, identities, native_ids):
+        by_id = {row[0]: row for row in rows}
+        lexical = bm25(query, {r[0]: r[5] for r in rows})
+        lexical_ids = ranked({mid: score for mid, score in lexical.items() if score > 0})
+        fused = ranked(rrf([native_ids, lexical_ids]))
+        order = list(dict.fromkeys([*sorted(identities), *fused]))
+        order = self._order_sources(payload, parts, rows, order, identities)
+        positions = {(r[2], r[3], r[4]): r[0] for r in rows}
+        expanded, seen = [], set()
+        for rank, mid in enumerate(order):
+            row = by_id[mid]
+            group = [mid]
+            if rank < self.context_anchor_limit:
+                group += [positions.get((row[2], row[3], row[4]+offset)) for offset in (-1, 1)]
+            for candidate in group:
+                if candidate is not None and candidate not in seen:
+                    seen.add(candidate)
+                    expanded.append(candidate)
+
+        def originals():
+            with self.connect() as db:
+                for mid in expanded:
+                    value = db.execute('''SELECT content,created_at FROM memories
+                        WHERE user_id=? AND id=?''', (uid, mid)).fetchone()
+                    if value is None:
+                        raise ContractError('source disappeared during search', 503)
+                    yield dict(id=mid, content=json.loads(value[0]), created_at=value[1])
+        return {'data': pack_mixed(originals(), [], min(payload['top_k'], 100))}
