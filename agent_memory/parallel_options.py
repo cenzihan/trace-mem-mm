@@ -14,7 +14,7 @@ import threading
 
 from .caption_image import caption_part
 from .mem0_bridge import BudgetEmbedding
-from .protocol import ContractError, canonical, content_parts, text_of, validate_add
+from .protocol import ContractError, canonical, canonical_digest, content_parts, text_of, validate_add
 from .provider_http import NativeHTTPS
 from .recoverable_options import RecoverableOptionsSystem, RetrySelectionTransport
 from .scoped_unknown import bound_request
@@ -165,7 +165,7 @@ class ParallelOptionsSystem(RecoverableOptionsSystem):
             for part in content_parts(message['content']):
                 if part['type'] == 'image_url':caption_part(part)
         uid, req = payload['user_id'], payload['request_id']
-        digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
+        digest = canonical_digest(payload)
         with self._operations.hold((uid, req)):
             with self.lock, self.connect() as db:
                 old = db.execute('SELECT digest,state FROM add_operations WHERE user_id=? AND request_id=?',
