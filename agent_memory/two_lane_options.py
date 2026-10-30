@@ -31,6 +31,6 @@ class TwoLaneRetryTransport(ParallelRetryTransport):
 
 class TwoLaneOptionsSystem(ParallelOptionsSystem):
     def capabilities(self):
-        return dict(super().capabilities(), version='tracemem-mm-parallel-v4.3.12-rc1',
+        return dict(super().capabilities(), version='tracemem-mm-parallel-v4.3.13-rc1',
                     concurrency=2, provider_concurrency=2,
                     restart_recovery='exclusive-worker-original-receipts-and-charges-preserved')

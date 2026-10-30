@@ -15,7 +15,7 @@ from pathlib import Path
 import threading
 import uuid
 
-from .protocol import ContractError,canonical,content_parts,text_of,validate_add,validate_search
+from .protocol import ContractError,canonical, canonical_digest,content_parts,text_of,validate_add,validate_search
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 from .caption_image import caption_part
@@ -188,7 +188,7 @@ class Mem0System(MemoryStore):
         validate_add(payload)
         self._assert_user_allowed(payload)
         uid,req=payload['user_id'],payload['request_id']
-        digest=hashlib.sha256(canonical(payload).encode()).hexdigest();owner=uuid.uuid4().hex
+        digest=canonical_digest(payload);owner=uuid.uuid4().hex
         with self.lock:
             with self.connect() as db:
                 db.execute('BEGIN IMMEDIATE')

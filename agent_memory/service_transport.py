@@ -252,29 +252,32 @@ class ServiceTransport:
         quarantines=self.quarantines()
         recovery_proofs=self.operator_recovery.proofs()
         with self.journal.connect() as db:
-            rows = [dict(row) for row in db.execute('SELECT * FROM operations')]
             discarded = {row['fingerprint']:dict(row) for row in db.execute('SELECT * FROM discarded_auxiliary_failures')}
             retired = {row[0] for row in db.execute('SELECT fingerprint FROM undispatched_retirements')}
-        for row in rows:
-            if self._runtime_active(row):continue
-            if self.retry_failed_requests and self._accounted_terminal_failure(row):continue
-            recovery=recovery_proofs.get(row['fingerprint'])
-            if recovery:
-                from .operator_recovery import row_digest
-                if row_digest(row)!=recovery['row_sha256']:raise ValueError('recovery row changed')
-                continue
-            if self._valid_scoped_unknown(row):continue
-            proof_unknown=quarantines.get(row['fingerprint'])
-            if proof_unknown and self.receipt_scope!=proof_unknown['scope']:continue
-            proof = discarded.get(row['fingerprint'])
-            if acknowledged_failure(row,proof):continue
-            if row['state']=='abandoned_before_dispatch' and row['fingerprint'] in retired and never_dispatched(row):continue
-            if row['state'] != 'complete':
-                raise ValueError('unresolved model attempt blocks further calls; no replay')
-            if (row['receipt_policy'] != 'usage_only' or row['body'] is not None
-                    or row['redacted'] != 1 or not row['transport_completed']
-                    or not isinstance(row['body_sha'], str) or len(row['body_sha']) != 64):
-                raise ValueError('invalid minimized receipt')
+        with self.journal.connect() as db:
+            # Keep only one receipt in Python, not a second copy of the entire
+            # append-only history on every model call and health probe.
+            for stored in db.execute('SELECT * FROM operations'):
+                row = dict(stored)
+                if self._runtime_active(row):continue
+                if self.retry_failed_requests and self._accounted_terminal_failure(row):continue
+                recovery=recovery_proofs.get(row['fingerprint'])
+                if recovery:
+                    from .operator_recovery import row_digest
+                    if row_digest(row)!=recovery['row_sha256']:raise ValueError('recovery row changed')
+                    continue
+                if self._valid_scoped_unknown(row):continue
+                proof_unknown=quarantines.get(row['fingerprint'])
+                if proof_unknown and self.receipt_scope!=proof_unknown['scope']:continue
+                proof = discarded.get(row['fingerprint'])
+                if acknowledged_failure(row,proof):continue
+                if row['state']=='abandoned_before_dispatch' and row['fingerprint'] in retired and never_dispatched(row):continue
+                if row['state'] != 'complete':
+                    raise ValueError('unresolved model attempt blocks further calls; no replay')
+                if (row['receipt_policy'] != 'usage_only' or row['body'] is not None
+                        or row['redacted'] != 1 or not row['transport_completed']
+                        or not isinstance(row['body_sha'], str) or len(row['body_sha']) != 64):
+                    raise ValueError('invalid minimized receipt')
         if self.ledger.totals()['remaining_micro_cny'] < 5000000:
             raise ValueError('insufficient bounded budget for a complete admitted Add')
 

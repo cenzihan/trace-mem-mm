@@ -20,6 +20,21 @@ def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
+def canonical_digest(value):
+    """Hash identical canonical UTF-8 bytes without joining the whole request.
+
+    A single non-BMP character otherwise makes the entire base64-heavy JSON
+    string four bytes per character before allocating a second UTF-8 copy.
+    Encoder chunks preserve the existing request IDs and replay semantics.
+    """
+    digest = hashlib.sha256()
+    encoder = json.JSONEncoder(sort_keys=True, ensure_ascii=False,
+                               separators=(",", ":"), allow_nan=False)
+    for chunk in encoder.iterencode(value):
+        digest.update(chunk.encode('utf-8'))
+    return digest.hexdigest()
+
+
 def nonempty(value, field):
     if not isinstance(value, str) or not value.strip():
         raise ContractError(f"{field} must be a non-empty string")
