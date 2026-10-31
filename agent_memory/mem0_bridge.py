@@ -15,10 +15,13 @@ from pathlib import Path
 import threading
 import uuid
 
-from .protocol import ContractError,canonical,content_parts,text_of,validate_add,validate_search
+from .protocol import ContractError,canonical, canonical_digest,content_parts,text_of,validate_add,validate_search
 from .provider_http import OPENAI_ENDPOINT
 from .store import MemoryStore
 from .caption_image import caption_part
+from .scoped_unknown import bound_request
+from .readiness_error import ReadinessFailure
+from .pre_dispatch import PreDispatchRejection
 
 VERSION='tracemem-mm-mem0-v3.0.3'
 MEM0_VERSION='2.2.1'
@@ -54,6 +57,10 @@ class BudgetEmbedding:
         vectors=[]
         try:
             for start in range(0,len(flat),10):vectors.extend(self.embedding.embed(flat[start:start+10]))
+        except PreDispatchRejection:
+            # This particular provider request was rejected before journal claim.
+            # The enclosing Add still records its failure and blocks replay.
+            raise
         except BaseException:
             self.failed=True; raise
         out=[]; cursor=0
@@ -82,7 +89,7 @@ class BudgetLLM:
             self.failed=True;raise
 
 
-def create_native(root,embedding,transport):
+def create_native(root,embedding,transport,*,disk_vectors=False):
     if importlib.metadata.version('mem0ai')!=MEM0_VERSION:raise ValueError('pinned Mem0 version required')
     os.environ['MEM0_TELEMETRY']='false'
     os.environ['MEM0_DIR']=str(root/'sdk-config')
@@ -92,7 +99,7 @@ def create_native(root,embedding,transport):
     from mem0 import Memory
     from mem0.memory import main
     if main.MEM0_TELEMETRY:raise ValueError('Mem0 was imported before telemetry was disabled')
-    from mem0.utils.factory import EmbedderFactory,LlmFactory
+    from mem0.utils.factory import EmbedderFactory,LlmFactory,VectorStoreFactory
     from mem0.configs.llms.base import BaseLlmConfig
     config=dict(version='v1.1',history_db_path=str(root/'history.sqlite'),
         embedder={'provider':'openai','config':{'model':'text-embedding-v4','embedding_dims':256}},
@@ -103,13 +110,16 @@ def create_native(root,embedding,transport):
     # Bind the existing provider label only while constructing dedicated adapters.
     with _factory_lock:
         old_e=EmbedderFactory.provider_to_class['openai'];old_l=LlmFactory.provider_to_class['openai']
+        old_v=VectorStoreFactory.provider_to_class['qdrant']
         token=_adapters.set(dict(embedding=embedding,transport=transport))
         try:
             EmbedderFactory.provider_to_class['openai']='agent_memory.mem0_bridge.BudgetEmbedding'
             LlmFactory.provider_to_class['openai']=('agent_memory.mem0_bridge.BudgetLLM',BaseLlmConfig)
+            if disk_vectors:VectorStoreFactory.provider_to_class['qdrant']='agent_memory.disk_vectors.DiskQdrant'
             return Memory.from_config(config)
         finally:
             EmbedderFactory.provider_to_class['openai']=old_e;LlmFactory.provider_to_class['openai']=old_l
+            VectorStoreFactory.provider_to_class['qdrant']=old_v
             _adapters.reset(token)
 
 
@@ -118,7 +128,7 @@ class Mem0System(MemoryStore):
         super().__init__(path)
         self.transport=transport;self.cards=card_adapter;self.lock=threading.RLock()
         root=Path(path).parent/'mem0-native';root.mkdir(parents=True,exist_ok=True)
-        self.native=create_native(root,embedding,transport)
+        self.native=create_native(root,embedding,transport,disk_vectors=getattr(self,'disk_vectors',False))
         with self.connect() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS add_operations(
                 user_id TEXT NOT NULL, request_id TEXT NOT NULL, digest TEXT NOT NULL,
@@ -136,8 +146,10 @@ class Mem0System(MemoryStore):
             admission_capacity=16,queue_wait_seconds=30,receipt_content_logging=False)
 
     def ready(self):
-        if self.native.embedding_model.failed or self.native.llm.failed:
-            raise ValueError('SDK provider failure requires operator reconciliation')
+        if self.native.embedding_model.failed:
+            raise ReadinessFailure('embedding_latch')
+        if self.native.llm.failed:
+            raise ReadinessFailure('llm_latch')
         self.transport.ready()
 
     def _describe(self,parts):
@@ -174,19 +186,22 @@ class Mem0System(MemoryStore):
             try:check(payload)
             except ValueError:raise ContractError('retired or invalid source scope',503) from None
 
+    @bound_request
     def add(self,payload):
         validate_add(payload)
         self._assert_user_allowed(payload)
         uid,req=payload['user_id'],payload['request_id']
-        digest=hashlib.sha256(canonical(payload).encode()).hexdigest();owner=uuid.uuid4().hex
+        digest=canonical_digest(payload);owner=uuid.uuid4().hex
         with self.lock:
             with self.connect() as db:
                 db.execute('BEGIN IMMEDIATE')
                 old=db.execute('SELECT digest,state FROM add_operations WHERE user_id=? AND request_id=?',(uid,req)).fetchone()
                 if old:
                     if old[0]!=digest:raise ContractError('request_id conflict',409)
-                    if old[1]!='complete':raise ContractError('unresolved Add; no automatic replay',503)
-                    return self._persist_add(db,payload)
+                    if old[1]=='complete':return self._persist_add(db,payload)
+                    if not getattr(self,'recoverable_add',False):raise ContractError('unresolved Add; no automatic replay',503)
+                    self._clear_partial_native(payload)
+                    db.execute('DELETE FROM add_operations WHERE user_id=? AND request_id=?',(uid,req))
                 if db.execute("SELECT 1 FROM add_operations WHERE user_id=? AND state!='complete'",(uid,)).fetchone():
                     raise ContractError('user has unresolved Add',503)
                 db.execute('INSERT INTO add_operations VALUES(?,?,?,?,?)',(uid,req,digest,'preparing',owner))
@@ -199,6 +214,13 @@ class Mem0System(MemoryStore):
                     db.execute("UPDATE add_operations SET state='complete' WHERE user_id=? AND request_id=? AND owner_token=?",(uid,req,owner))
                 return response
             except BaseException:
+                if getattr(self,'recoverable_add',False):
+                    self._clear_partial_native(payload)
+                    with self.connect() as db:
+                        db.execute("DELETE FROM add_operations WHERE user_id=? AND request_id=? AND owner_token=?",(uid,req,owner))
+                    self.native.embedding_model.failed=False
+                    self.native.llm.failed=False
+                    raise
                 with self.connect() as db:
                     db.execute("UPDATE add_operations SET state='uncertain' WHERE user_id=? AND request_id=? AND state='preparing'",(uid,req))
                 raise

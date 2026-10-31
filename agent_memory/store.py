@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .adapters import ConfiguredModelBoundary, IdentityMockReranker, ModelConfig
-from .protocol import (ContractError, MEDIA_LIMIT, canonical, content_parts, image_bytes,
+from .protocol import (ContractError, MEDIA_LIMIT, canonical, canonical_digest, content_parts, image_bytes,
                        image_hashes, media_size, text_of, validate_add, validate_search)
 
 
@@ -79,7 +79,7 @@ class MemoryStore:
 
     def _persist_add(self, db, payload, operation_token=None):
         """Shared raw persistence inside the caller's transaction; no independent commit."""
-        digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
+        digest = canonical_digest(payload)
         uid, req, session = (payload[k] for k in ("user_id", "request_id", "session_id"))
         self._guard_operation(db,uid,req,digest,operation_token)
         response = dict(success=True, request_id=req, user_id=uid, session_id=session)
