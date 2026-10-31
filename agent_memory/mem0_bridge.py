@@ -89,7 +89,7 @@ class BudgetLLM:
             self.failed=True;raise
 
 
-def create_native(root,embedding,transport):
+def create_native(root,embedding,transport,*,disk_vectors=False):
     if importlib.metadata.version('mem0ai')!=MEM0_VERSION:raise ValueError('pinned Mem0 version required')
     os.environ['MEM0_TELEMETRY']='false'
     os.environ['MEM0_DIR']=str(root/'sdk-config')
@@ -99,7 +99,7 @@ def create_native(root,embedding,transport):
     from mem0 import Memory
     from mem0.memory import main
     if main.MEM0_TELEMETRY:raise ValueError('Mem0 was imported before telemetry was disabled')
-    from mem0.utils.factory import EmbedderFactory,LlmFactory
+    from mem0.utils.factory import EmbedderFactory,LlmFactory,VectorStoreFactory
     from mem0.configs.llms.base import BaseLlmConfig
     config=dict(version='v1.1',history_db_path=str(root/'history.sqlite'),
         embedder={'provider':'openai','config':{'model':'text-embedding-v4','embedding_dims':256}},
@@ -110,13 +110,16 @@ def create_native(root,embedding,transport):
     # Bind the existing provider label only while constructing dedicated adapters.
     with _factory_lock:
         old_e=EmbedderFactory.provider_to_class['openai'];old_l=LlmFactory.provider_to_class['openai']
+        old_v=VectorStoreFactory.provider_to_class['qdrant']
         token=_adapters.set(dict(embedding=embedding,transport=transport))
         try:
             EmbedderFactory.provider_to_class['openai']='agent_memory.mem0_bridge.BudgetEmbedding'
             LlmFactory.provider_to_class['openai']=('agent_memory.mem0_bridge.BudgetLLM',BaseLlmConfig)
+            if disk_vectors:VectorStoreFactory.provider_to_class['qdrant']='agent_memory.disk_vectors.DiskQdrant'
             return Memory.from_config(config)
         finally:
             EmbedderFactory.provider_to_class['openai']=old_e;LlmFactory.provider_to_class['openai']=old_l
+            VectorStoreFactory.provider_to_class['qdrant']=old_v
             _adapters.reset(token)
 
 
@@ -125,7 +128,7 @@ class Mem0System(MemoryStore):
         super().__init__(path)
         self.transport=transport;self.cards=card_adapter;self.lock=threading.RLock()
         root=Path(path).parent/'mem0-native';root.mkdir(parents=True,exist_ok=True)
-        self.native=create_native(root,embedding,transport)
+        self.native=create_native(root,embedding,transport,disk_vectors=getattr(self,'disk_vectors',False))
         with self.connect() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS add_operations(
                 user_id TEXT NOT NULL, request_id TEXT NOT NULL, digest TEXT NOT NULL,

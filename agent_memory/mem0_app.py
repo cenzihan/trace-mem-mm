@@ -138,3 +138,18 @@ def create_two_lane_retry_options_app(environ=None):
     return create_app(env, _system_type=TwoLaneOptionsSystem,
                       _transport_type=TwoLaneRetryTransport, _stop_at_chat_done=True,
                       _execution_capacity=2)
+
+
+def create_disk_retry_options_app(environ=None):
+    env=os.environ if environ is None else environ
+    if env.get('TRACEMEM_MEM0_RETRY_ENABLED')!='approved-five-retries-fresh-memory':
+        raise ValueError('explicit billed retry activation required')
+    if env.get('TRACEMEM_TWO_LANE_ENABLED')!='approved-two-lanes-exclusive-restart':
+        raise ValueError('explicit two-lane recovery activation required')
+    if env.get('TRACEMEM_DISK_VECTORS_ENABLED')!='verified-preserving-migration':
+        raise ValueError('explicit disk profile activation required')
+    from .disk_options import DiskOptionsSystem
+    from .two_lane_options import TwoLaneRetryTransport
+    return create_app(env, _system_type=DiskOptionsSystem,
+                      _transport_type=TwoLaneRetryTransport, _stop_at_chat_done=True,
+                      _execution_capacity=2)
