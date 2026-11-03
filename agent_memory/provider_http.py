@@ -4,11 +4,13 @@ No key/environment/file access occurs unless the supplied reader is called after
 No SDK retries, redirects, proxy changes, error bodies or prompts are logged/persisted.
 """
 import http.client
+import errno
 import json
 import math
 import queue
 import re
 import ssl
+import socket
 import threading
 import time
 from dataclasses import dataclass,field
@@ -36,12 +38,23 @@ class ProviderFailure(RuntimeError):
 
 def safe_failure_kind(exc):
     """Classify transport exceptions without retaining messages or payload bytes."""
-    for kind in (http.client.RemoteDisconnected, ssl.SSLCertVerificationError, ssl.SSLError, TimeoutError,
+    for kind in (http.client.RemoteDisconnected, ssl.SSLCertVerificationError, ssl.SSLError, socket.gaierror, TimeoutError,
                  ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
                  http.client.IncompleteRead,
                  http.client.BadStatusLine, OSError):
         if isinstance(exc,kind):return kind.__name__
     return 'OtherTransportError'
+
+
+def safe_failure_errno(exc):
+    """Return only recognized numeric OS/DNS codes, never exception messages."""
+    code = getattr(exc, 'errno', None)
+    if type(code) is not int:
+        return None
+    allowed = set(errno.errorcode)
+    allowed.update(getattr(socket, name) for name in dir(socket)
+                   if name.startswith('EAI_') and type(getattr(socket, name)) is int)
+    return code if code in allowed else None
 
 
 @dataclass(frozen=True)
@@ -93,11 +106,15 @@ class NativeHTTPS:
     is_fake_http=False
 
     def __init__(self,handshake_attempts=1,*,stop_at_chat_done=False):
-        if type(handshake_attempts) is not int or not 1<=handshake_attempts<=3:
-            raise ValueError('TLS setup attempts must be within1..3')
+        if type(handshake_attempts) is not int or not 1<=handshake_attempts<=6:
+            raise ValueError('TLS setup attempts must be within1..6')
         if type(stop_at_chat_done) is not bool:raise ValueError('explicit stream-completion policy required')
         self.stop_at_chat_done=stop_at_chat_done
         self.handshake_attempts=handshake_attempts;self._slot=threading.Lock()
+
+    def connection(self, hostname, timeout):
+        return http.client.HTTPSConnection(hostname, port=443, timeout=timeout,
+                                           context=ssl.create_default_context())
 
     def exchange(self,endpoint,body,headers,timeout,max_response_bytes):
         if not self._slot.acquire(blocking=False):raise ProviderFailure('network_error')
@@ -109,7 +126,7 @@ class NativeHTTPS:
                 for setup in range(self.handshake_attempts):
                     if cancel.is_set() or time.monotonic()>=deadline:raise TimeoutError()
                     connect_timeout=(timeout if self.handshake_attempts==1 else min(10,max(.001,deadline-time.monotonic())))
-                    conn=http.client.HTTPSConnection(parsed.hostname,port=443,timeout=connect_timeout,context=ssl.create_default_context())
+                    conn=self.connection(parsed.hostname,connect_timeout)
                     try:
                         # Only unauthenticated TCP/TLS setup can be repeated. No
                         # HTTP headers/body have been sent, even on an SSL error.
@@ -149,6 +166,7 @@ class NativeHTTPS:
             except Exception as exc:
                 category='timeout' if isinstance(exc,TimeoutError) else ('tls_error' if isinstance(exc,ssl.SSLError) else 'network_error')
                 value=ProviderFailure(category);value.transport_kind=safe_failure_kind(exc)
+                value.error_errno=safe_failure_errno(exc)
             finally:
                 try:
                     if conn:conn.close()
@@ -160,6 +178,8 @@ class NativeHTTPS:
                     'response_status':response_status,
                     'sse_done_frame':bool(chat_stream and chat_stream.done_frame),
                     'sse_complete':bool(chat_stream and chat_stream.complete)}
+                if getattr(value,'error_errno',None) is not None:
+                    value.response_diagnostics['error_errno']=value.error_errno
             result.put(value)
         thread=threading.Thread(target=worker,daemon=True);thread.start()
         try:value=result.get(timeout=timeout)
@@ -171,6 +191,7 @@ class NativeHTTPS:
 
 class BudgetedJSONTransport:
     """Callable for TextEmbeddingV4/GPT4oMiniCards. Real network off by default."""
+    price_max_age_seconds = 172800
     def __init__(self,*,model,endpoint,ledger,rate,credential_reader=None,http=None,
                  mode='live',enabled=False,prices_confirmed=False,retry=None,purpose='pipeline',
                  timeout_seconds=30,max_response_bytes=4*1024*1024,usd_rates=None,sleep=time.sleep,
@@ -315,7 +336,8 @@ class BudgetedJSONTransport:
                 raise ProviderBlocked('official price source required for live preparation')
             try:checked=datetime.fromisoformat(self.rate.checked_at.replace('Z','+00:00'))
             except (ValueError,TypeError):raise ProviderBlocked('price verification date required') from None
-            if checked.tzinfo is None or not 0<=(datetime.now(timezone.utc)-checked).total_seconds()<=172800:
+            age = (datetime.now(timezone.utc)-checked).total_seconds() if checked.tzinfo else -1
+            if age < 0 or (self.price_max_age_seconds is not None and age > self.price_max_age_seconds):
                 raise ProviderBlocked('price verification is stale or future-dated')
         if self.mode=='offline_fake':
             # Fake exchanges never invoke a supplied real reader, even if wired by mistake.

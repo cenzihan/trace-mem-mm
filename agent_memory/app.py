@@ -22,8 +22,12 @@ class Application:
         expected = self.key if self.auth_mode == "X-Api-Key" else self.auth_mode + " " + self.key
         return hmac.compare_digest(value.encode(), expected.encode())
 
+    def record_exception(self, stage, exc, status, payload=None, response=None):
+        """Optional private, content-free diagnostics supplied by the service."""
+        pass
+
     def __call__(self, environ, start_response):
-        status = 200
+        status, path, payload = 200, None, None
         try:
             path, method = environ.get("PATH_INFO"), environ.get("REQUEST_METHOD")
             if path == "/health" and method == "GET":
@@ -53,12 +57,16 @@ class Application:
                     payload = json.loads(raw.decode("utf-8"), parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
                 except (UnicodeError, ValueError) as exc:
                     raise ContractError("invalid JSON", 400) from exc
+                # Do not retain a second full body throughout model waits/commit.
+                del raw
                 result = self.store.add(payload) if path == "/add" else self.store.search(payload)
         except ContractError as exc:
             status, result = exc.status, {"error": str(exc)}
-        except Exception:
-            # No request bodies, questions, credentials, tracebacks, or paths in logs/responses.
+            self.record_exception(path if path in ('/add', '/search', '/health') else 'other', exc, status, payload, result)
+        except Exception as exc:
+            # No exception details or private request content in public responses.
             status, result = 500, {"error": "internal service error"}
+            self.record_exception(path if path in ('/add', '/search', '/health') else 'other', exc, status, payload, result)
         body = canonical(result).encode("utf-8")
         start_response(f"{status} {HTTPStatus(status).phrase}",
                        [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(body))),

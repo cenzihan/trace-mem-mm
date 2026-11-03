@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - codex/final-architecture-20261103
       - codex/v6-research-docker
       - codex/bailian-reranker-v2
       - codex/hosted-admission-queue

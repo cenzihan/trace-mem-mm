@@ -21,7 +21,7 @@ class Mem0JointSystem(Mem0RawSystem):
             retrieval='native-raw+BM25+exact-image+joint-selection+same-add-context',
             selection_max_calls_per_search=1, selection_max_sources=32,
             selection_max_selected=8, selection_max_images=8,
-            selection_text_prefix_bytes=1500, selection_query_text_bytes=4000,
+            selection_text_prefix_bytes=1500, selection_query_text_bytes=None,
             selection_preview='JPEG512-q85-max256KiB', hosted_rerank_calls=0,
             generated_answers=False, calibrated_abstention=False,
             observed_llm_model='gpt-4o-mini-2024-07-18')

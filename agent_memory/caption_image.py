@@ -11,7 +11,14 @@ PREVIEW_BYTES = 256 * 1024
 
 def caption_part(part):
     """Return a separate JPEG view, without editing the archived API source."""
-    raw, _ = image_bytes(part['image_url']['url'])
+    from .request_media import media_result
+    uri = part['image_url']['url']
+    preview = media_result('preview', uri, lambda: _caption_uri(uri))
+    return {'type': 'image_url', 'image_url': {'url': preview}}
+
+
+def _caption_uri(uri):
+    raw, _ = image_bytes(uri)
     from PIL import Image, ImageOps, UnidentifiedImageError
     try:
         with Image.open(io.BytesIO(raw)) as source:
@@ -31,5 +38,4 @@ def caption_part(part):
         raise ContractError('invalid or undecodable image') from None
     if len(encoded) > PREVIEW_BYTES:
         raise ContractError('local caption preview byte capacity exceeded', 413)
-    return {'type': 'image_url', 'image_url': {
-        'url': 'data:image/jpeg;base64,' + base64.b64encode(encoded).decode('ascii')}}
+    return 'data:image/jpeg;base64,' + base64.b64encode(encoded).decode('ascii')

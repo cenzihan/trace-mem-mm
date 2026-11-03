@@ -1,42 +1,31 @@
-Current checkpoint (2026-10-27): access is approved and the first official Smoke failed during Add on malformed optional GPT quote metadata. Patch tracemem-mm-bailian-v2.0.2 is published, deployed and bound as a separate version after646 offline checks and Docker CI. The registry rejected changed endpoint URLs after the first run, but accepted the new version at the registered /v2.1 endpoints. Those endpoints now explicitly serve v2.0.2; /v2.2 is its alias. Never resume the old v2.0.1 job against this patch. Its failure, source, image and tag remain preserved. Task-wide Smoke usage is1/5 and the next attempt must respect platform eligibility; Full is not authorized. Credentials and job receipts remain private. Preserve the same server-owned budget, hosted state, journals, immutable512-call ceiling and original lease/retention. A known HTTP200 auxiliary failure was acknowledged without replay; unknown calls must still block. The hosted alias is user-authorized for the separate v2 and does not imply identical old Qwen2B weights. Earlier checkpoint notes below are historical.
+# Repository guidance
 
-Latest explicit user instruction (2026-10-27): continue through actual official access-request submission. This supersedes historical final-confirmation/publication pauses for the reviewed submission. Only audited source and aggregate evidence may be made public. The original budget ledger is transferred to /opt/tracemem-access-v1/runtime/development-budget.sqlite as its single active writer; the desktop original is retired read-only. Never write, replace or reopen the local ledger, create a second budget, or reset the completed632-call grant. Submit the final authenticated public endpoints and exact model identity once verified. Official Smoke remains0/5; Full not authorized.
+## Current implementation
 
-Latest completed online milestone (2026-10-27): private R2 native acceptance and isolated gold scoring are COMPLETE.186 Add/74 Search passed, including idempotence/conflict/user isolation/restart persistence and original-evidence hashes.632 actual provider receipts (372 GPT,260 embedding) reconciled in original CNY500 ledger; no unknowns; historical rows unchanged. Fixed Qwen/Qwen3-VL-Reranker-2B scored7400pairs; exact revision/weight identity is mandatory and hosted rerank calls are0. API-message Recall@20=90.52% on60 nonempty-gold questions; not comparable directly with round-level frozen V7 or official scores. All632 grant slots are used; NEVER relaunch R2, rerun known-response recovery, reset grants or tune these questions. See reports/online-native-acceptance.json and private runtime ONLINE_COMPLETED.json. Runtime code9932617 passed598 checks; subsequent changes are documentation only. Next work is persistent fixed-model serving, bounded traffic accounting and public authenticated endpoints, then final repository/license/application review. Current temporary GPU process and exhausted acceptance grant are not an official endpoint. Official Smoke0/5; Full outside scope. Older active-state notes below are historical.
+- The final published service is `agent_memory.gpu6_app:create_gpu6_app`, version
+  `tracemem-mm-gpu6-v4.3.15-rc7`. Other factories and research configurations
+  remain historical or alternative profiles, not the final deployment default.
+- Preserve the original sources, user isolation, model identities, receipt
+  ownership and conservative accounting of unknown outcomes.
+- Do not reintroduce the withdrawn rc8 readiness changes without a separate,
+  reviewed fix and isolated concurrency validation.
 
-Latest user direction (2026-10-27): continue actual online acceptance using the complete earlier real dataset, with hourly follow-up. Model identity must match the original Qwen/Qwen3-VL-Reranker-2B weights/revision exactly; a hosted alias is not sufficient. No hosted reranker calls occurred. An isolated online container and private pinned GPU scorer are deployed. Complete native inputs include verified original images and two documented same-dimension compressed protocol variants. A finite parent grant reserves at most632 GPT/embedding calls/CNY106 inside the same original CNY500 ledger. Do not create another live ledger, reset/reuse old grants, or confuse reservations with executed requests. Initial acceptance stopped after2 Add successes/7 durable model responses on a non-exact generated text quote. The exact known-response recovery is already complete, with no HTTP replay; do not rerun it. Only unverified quote metadata was omitted. A later R1 connectivity check failed before new requests. Consult private current-owner-handoff and actual server acceptance-r2 progress before continuing; do not relaunch the existing run. The repaired private GPU tunnel still serves a bounded temporary process, not a permanent official deployment. Source checks598 passed. No completed native benchmark, official score, public endpoint, or formal release is yet claimed. See docs/online-native-candidate.md.
+## Development and validation
 
-Previous application milestone: real GPT/Qwen component smoke passed under closed guards. User contact details are private and no AML Eval Key has been received; application remains a draft. Official Smoke is authorized once bound key/version/endpoints are ready, under task cap5 and hourly gate. Full remains outside scope. Do not publish contact data, provider keys, runtime or private receipts. Private repository updates are authorized; public visibility and application submission require review of concrete final materials. Deterministic baseline remains available separately.
+- Run `python scripts/run_checks.py` for the offline suite. Report dependency
+  skips explicitly; mocked tests do not establish real provider throughput.
+- Native dependency checks run in `Dockerfile.mem0` with synthetic inputs and
+  disabled networking. Never use protected questions or gold answers as tests.
+- Keep deployment changes separate from source publication. Repository updates
+  do not authorize touching a running service, state, credentials or lease.
+- Keep README concise and focused on the final architecture and local usage.
+  Do not add evaluation scores or operational incident timelines to it.
 
-Historical embedding-only milestone: three original parent-ledger embedding grants were reconciled and exhausted; the isolated container and temporary uploaded key were removed. Initial server GPT regional HTTP403 is preserved, superseded only as current connectivity status by the user's changed configuration and successful fresh GPT request.
+## Publication
 
-Historical research milestone (2026-10-26): V7 independent-scene retrieval and V7.1 same-scene citation-interface regression are complete;164 actual provider requests plus one preserved local no-HTTP claim. Private PR1 updates may publish curated authored code and aggregate reports only. Preserve all source freezes, original failed responses and accounting. Do not reopen completed paid guards or interpret the preserved local preflight claim as a resumable request. Default Add/Search remains unchanged and there is no official score or formal release. See docs/v7-independent-scene.md.
-
-# Development boundaries
-
-Current user authorization (2026-10-26): upload the reviewed code/results to the
-existing private cenzihan/trace-mem-mm repository and prepare Docker deployment.
-Publish a clean snapshot with the prior remote main as parent; preserve local
-experimental history without uploading its benchmark documentation examples.
-Docker files are a deterministic-service preview, not V6 online integration or
-a production release. No public endpoint or official evaluation was requested.
-The older checkout publication restriction below is superseded for this upload.
-
-Academic multimodal only: text-embedding-v4 and gpt-4o-mini. Offline by default.
-Preserve original evidence and user isolation. Never store evaluation questions,
-gold, secrets, provider logs, runtime databases or model weights in Git.
-Native dataset provenance/license/split/overlap review precedes access. No training
-or prompt tuning on evaluation answers. Default-service Qwen reranking is disabled;
-the frozen V6 research scripts separately support explicit candidate-only scoring.
-No public deployment, enrollment, repository publication or new credentials are
-authorized by this checkout. Run python scripts/run_checks.py for offline tests.
-Current hosted-candidate authorization 2026-10-27: the user explicitly approved using
-Bailian qwen3-vl-rerank to remove the private GPU tunnel dependency. This supersedes
-the prior identical-Qwen2B-weight restriction for the NEW version only. Preserve
-the submitted v1 image/tag/source and all historical failures/results. The hosted
-alias has no verified identical weight revision; do not claim equivalence. Prepare
-and validate a distinct v2 against the prior real Mem-Gallery candidate pools,
-using the original server-owned CNY500 ledger only. Never reopen the closed632-call
-grant or the completed Coding pilot. Freeze a new finite rerank comparison before
-dispatch; no unknown replay, no query/raw response publishing, no silent version
-replacement. Official Smoke remains task-wide maximum5, Full unauthorized.
+- Publish only audited source, synthetic fixtures and aggregate evidence.
+  Never commit credentials, provider logs, private error inputs, runtime
+  databases, model weights or evaluation content.
+- Preserve attribution and third-party licenses.
+- Publish a clean snapshot with the prior remote main as parent; retain local
+  experimental history locally rather than uploading it with the snapshot.

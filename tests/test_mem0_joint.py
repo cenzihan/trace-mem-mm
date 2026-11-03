@@ -45,8 +45,10 @@ class SelectionContractTests(unittest.TestCase):
         self.assertTrue(all(r['has_image'] for r in rows))
         self.assertLess(len(json.dumps(payload).encode()), 3*1024*1024)
 
-    def test_oversized_query_and_pool_rejected(self):
-        with self.assertRaises(ContractError):selection_payload(content_parts('x'*4001), [source()])
+    def test_long_query_preserved_and_candidate_pool_still_bounded(self):
+        query='长查询'*3000
+        payload=selection_payload(content_parts(query), [source()])
+        self.assertEqual(strict_json(payload['messages'][1]['content'][0]['text'])['query_text'],query)
         for values in ([], [source()]*33):
             with self.assertRaises(ValueError):selection_payload(content_parts('query'), values)
 
@@ -232,7 +234,14 @@ class JointNativeTests(unittest.TestCase):
             rows=db.execute('select indexed_text from mem0_source_index').fetchall()
         self.assertNotIn('NEW_QUERY_SENTINEL',str(rows))
 
-    def test_query_capacity_rejected_before_embedding(self):
+    def test_long_query_reaches_embedding_losslessly_and_selection_unchanged(self):
         self.add(['source']);before=len(self.e.calls)
-        with self.assertRaises(ContractError):self.search('q'*4001)
-        self.assertEqual(len(self.e.calls),before);self.assertEqual(self.t.calls,[])
+        query='source '+ '原始问题 '*3000
+        self.search(query)
+        chunks=[text for batch in self.e.calls[before:] for text in batch]
+        # The pinned SDK strips outer whitespace before its embedding adapter;
+        # the original query must still reach evidence selection unchanged.
+        self.assertEqual(''.join(chunks),query.strip())
+        self.assertTrue(all(len(text.encode())<=8000 for text in chunks))
+        self.assertEqual(len(self.t.calls),1)
+        self.assertEqual(strict_json(self.t.calls[0]['messages'][1]['content'][0]['text'])['query_text'],query)

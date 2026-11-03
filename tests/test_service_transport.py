@@ -44,6 +44,31 @@ class ServiceTransportTests(unittest.TestCase):
 
     def call(self,transport=None):return (transport or self.make())(BAILIAN_BEIJING_ENDPOINT,self.payload)
 
+    def test_large_history_has_bounded_readiness_allocations_and_checks_tail(self):
+        import tracemalloc
+        transport = self.make()
+        with transport.journal.connect() as db:
+            db.executemany("""INSERT INTO operations
+                (fingerprint,scope,manifest,state,body_sha,redacted,transport_completed,receipt_policy)
+                VALUES(?,?,?,'complete',?,1,1,'usage_only')""",
+                ((str(i), 'synthetic', 'x'*278, 'a'*64) for i in range(20000)))
+        tracemalloc.start()
+        try:
+            transport.ready()
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 2*1024*1024, 'readiness must not materialize journal history')
+        with transport.journal.connect() as db:
+            db.execute("UPDATE operations SET redacted=0 WHERE fingerprint='19999'")
+        with self.assertRaisesRegex(ValueError, 'invalid minimized receipt'):
+            transport.ready()
+        # An exceptional exit must close the read cursor/connection as well.
+        with transport.journal.connect() as db:
+            db.execute("UPDATE operations SET redacted=1 WHERE fingerprint='19999'")
+        transport.ready()
+        self.assertEqual(self.http.calls, 0)
+
     def test_existing_ledger_required(self):
         with self.assertRaises(ValueError):ServiceTransport(self.p/'absent.sqlite',self.authority,self.prices,self.p/'receipts',{},http=self.http,offline_test=True)
         self.assertFalse((self.p/'absent.sqlite').exists());self.assertEqual(self.http.calls,0)

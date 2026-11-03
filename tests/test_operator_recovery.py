@@ -2,6 +2,7 @@ import hashlib,json,unittest
 from tests import test_service_transport as fixtures
 from agent_memory.provider_http import ProviderFailure
 from agent_memory.operator_recovery import row_digest
+from agent_memory.scoped_unknown import request_owner
 
 class OperatorRecoveryTests(unittest.TestCase):
     setUp=fixtures.ServiceTransportTests.setUp
@@ -33,6 +34,29 @@ class OperatorRecoveryTests(unittest.TestCase):
         t,r,_=self.prepare()
         with self.assertRaises(ValueError):t.assert_source_allowed({'user_id':'old-user'})
         t.assert_source_allowed({'user_id':'new-user'})
+    def test_equal_embedding_for_distinct_owner_is_new_call(self):
+        t,old,_=self.prepare()
+        t.scoped_unknown_enabled=True
+        with request_owner('new-user'):
+            self.call(t)
+        self.assertEqual(self.http.calls,2)
+        self.assertEqual(t.journal.row(old['fingerprint']),old)
+        with self.ledger.connect() as db:
+            amount=db.execute('select reserved,accounted from attempts where id=?',(old['attempt_id'],)).fetchone()
+        self.assertEqual(amount[0],amount[1])
+    def test_equal_embedding_for_retired_owner_remains_blocked(self):
+        t,_,_=self.prepare()
+        t.scoped_unknown_enabled=True
+        with request_owner('old-user'):
+            with self.assertRaises(ValueError):self.call(t)
+            self.payload['input']=['a different synthetic input']
+            with self.assertRaises(ValueError):self.call(t)
+        self.assertEqual(self.http.calls,1)
+    def test_equal_embedding_without_owner_remains_blocked(self):
+        t,_,_=self.prepare()
+        t.scoped_unknown_enabled=True
+        with self.assertRaises(ValueError):self.call(t)
+        self.assertEqual(self.http.calls,1)
     def test_new_unknown_reblocks(self):
         t,r,_=self.prepare();self.payload['input']=['New fixture'];self.http.failure=True
         with self.assertRaises(ProviderFailure):self.call(t)

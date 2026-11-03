@@ -10,5 +10,5 @@ Third-party components retain their own copyright notices and license terms:
 
 Other third-party components are subject to their respective terms. The project
 license does not grant rights to third-party datasets, benchmark material, or
-models. Research references are listed in README.md. No model weights,
+models. Historical research notes are retained in METHODS.md and docs/. No model weights,
 evaluation data, credentials, or private runtime artifacts are bundled.

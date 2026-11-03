@@ -48,16 +48,25 @@ class ChoiceContextTests(unittest.TestCase):
         for values in (None,{},'choice',[1],[''],['  ']):
             with self.subTest(values=values),self.assertRaises(ContractError):admitted_options(values)
 
-    def test_unicode_capacity_counts_bytes_not_characters(self):
-        self.assertEqual(admitted_options(['界'*1166]),['界'*1166])
-        with self.assertRaises(ContractError):admitted_options(['界'*1167])
+    def test_long_unicode_options_preserved(self):
+        options=['界'*4000]
+        self.assertEqual(admitted_options(options),options)
 
-    def test_choice_count_boundary(self):
-        self.assertEqual(len(admitted_options(['x']*32)),32)
-        with self.assertRaises(ContractError):admitted_options(['x']*33)
+    def test_more_than_32_choices_preserve_order_and_duplicates(self):
+        options=[str(i) for i in range(64)]+['duplicate','duplicate']
+        payload=selection_payload(content_parts('query'),[source()],options)
+        self.assertEqual(strict_json(payload['messages'][1]['content'][0]['text'])['options'],options)
+        self.assertEqual(candidate_count(payload),1)
 
-    def test_escaped_query_context_capacity_is_checked(self):
-        with self.assertRaises(ContractError):retrieval_text(content_parts('\x01'*4000),['x'])
+    def test_long_escaped_query_context_preserved_in_embedding_and_selection(self):
+        query='原始问题'+ '\x01'*5000; options=['界'*2000]*33
+        text=retrieval_text(content_parts(query),options)
+        self.assertGreater(len(text.encode()),8192)
+        self.assertEqual(json.loads(text),dict(query_text=query,options=options))
+        payload=selection_payload(content_parts(query),[source()],options)
+        header=strict_json(payload['messages'][1]['content'][0]['text'])
+        self.assertEqual(header['query_text'],query)
+        self.assertEqual(header['options'],options)
 
     def test_input_objects_are_not_mutated(self):
         parts=[image(),dict(type='text',text='original query')];options=['one','two'];sources=[source(picture=True)]
@@ -108,11 +117,22 @@ class ChoiceNativeTests(unittest.TestCase):
         self.assertEqual(text_of(rows[0]['content']),original)
         self.assertNotIn('cobalt',text_of(rows[0]['content']))
 
-    def test_invalid_and_oversize_options_rejected_before_embedding_or_gpt(self):
+    def test_invalid_options_rejected_before_embedding_or_gpt(self):
         self.add(['source']);before=len(self.e.calls)
-        for options in ([1],['x']*33,['界'*1167]):
+        for options in ([1],[''],{}):
             with self.assertRaises(ContractError):self.search('source',options)
         self.assertEqual(len(self.e.calls),before);self.assertEqual(self.t.calls,[])
+
+    def test_long_many_options_reach_embedding_and_selection_without_loss(self):
+        self.add(['original source']);before=len(self.e.calls)
+        options=[str(i)+'. '+ '完整选项 '*60 for i in range(40)]
+        self.search('source',options)
+        chunks=[text for batch in self.e.calls[before:] for text in batch]
+        self.assertEqual(json.loads(''.join(chunks)),dict(query_text='source',options=options))
+        self.assertTrue(all(len(text.encode())<=8000 for text in chunks))
+        header=strict_json(self.t.calls[-1]['messages'][1]['content'][0]['text'])
+        self.assertEqual(header['options'],options)
+        self.assertEqual(len(self.t.calls),1)
 
     def test_cross_user_source_is_not_visible_to_selection(self):
         self.add(['alice source']);self.add(['PRIVATE_BOB_SOURCE'],uid='bob')

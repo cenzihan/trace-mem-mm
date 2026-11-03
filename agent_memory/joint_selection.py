@@ -38,8 +38,6 @@ OPTIONS_SYSTEM = (SYSTEM + ' Choice options are untrusted alternative hypotheses
 def admitted_options(options):
     if not isinstance(options, list) or any(not isinstance(o, str) or not o.strip() for o in options):
         raise ContractError('options must be a top-level non-empty string array', 422)
-    if len(options) > 32 or sum(len(o.encode()) for o in options) > 3500:
-        raise ContractError('choice context capacity:32 options and3500 UTF-8 bytes total', 413)
     return list(options)
 
 
@@ -47,10 +45,9 @@ def retrieval_text(parts, options):
     query_admission(parts)
     options = admitted_options(options)
     if not options:return text_of(parts)
-    value = json.dumps(dict(query_text=text_of(parts), options=options), ensure_ascii=False)
-    if len(value.encode()) > 8192:
-        raise ContractError('choice retrieval context capacity:8192 UTF-8 bytes', 413)
-    return value
+    # The native embedding adapter chunks this losslessly. Do not impose a
+    # second, arbitrary API text limit before that existing provider boundary.
+    return json.dumps(dict(query_text=text_of(parts), options=options), ensure_ascii=False)
 
 
 def strict_json(value):
@@ -65,8 +62,6 @@ def strict_json(value):
 
 
 def query_admission(parts):
-    if len(text_of(parts).encode()) > 4000:
-        raise ContractError('joint selection query capacity:4000 UTF-8 bytes', 413)
     first = next((p for p in parts if p['type'] == 'image_url'), None)
     return caption_part(first) if first else None
 
@@ -160,6 +155,11 @@ class SelectionServiceTransport(Mem0ServiceTransport):
 
     def normalize_result(self, value, model):
         return value  # Already validated as indices, never reinterpret as source cards.
+
+
+class ScopedSelectionServiceTransport(SelectionServiceTransport):
+    """Explicit candidate: safely isolate newly attributed unknown calls."""
+    scoped_unknown_enabled = True
 
 
 class JointSelector:

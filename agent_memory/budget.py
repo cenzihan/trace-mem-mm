@@ -67,6 +67,7 @@ class VerifiedRate:
 
 
 class BudgetLedger:
+    enforce_cap = True
     @staticmethod
     def effective_cap(db):
         """Honor additive consent events; keep the original ceiling/history intact.
@@ -153,6 +154,10 @@ class BudgetLedger:
         finally:
             db.close()
 
+    def validation_connect(self):
+        """Read-side accounting checks; default profiles keep their connection policy."""
+        return self.connect()
+
     def reserve(self, rate, max_input_tokens, max_output_tokens=0, retry_of=None, fixed_reserve_cny=None):
         if not isinstance(rate, VerifiedRate):
             raise ValueError("unknown/unverified price: calls are blocked")
@@ -173,7 +178,7 @@ class BudgetLedger:
                 raise ValueError("unreconciled usage anomaly blocks all further attempts")
             cap = self.effective_cap(db)
             used = db.execute("SELECT coalesce(sum(accounted),0) FROM attempts").fetchone()[0]
-            if used + amount > cap:
+            if self.enforce_cap and used + amount > cap:
                 raise ValueError("hard budget exceeded; do not dispatch")
             db.execute("INSERT INTO attempts (id,retry_of,model,status,created_at,max_input,max_output,input_rate,output_rate,price_source,price_checked_at,reserved,input_tokens,output_tokens,accounted,amount_kind,conversion_basis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (attempt_id, retry_of, rate.model, "reserved", datetime.now(timezone.utc).isoformat(),

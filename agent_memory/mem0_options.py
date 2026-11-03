@@ -10,13 +10,13 @@ class Mem0OptionsSystem(Mem0JointSystem):
     def capabilities(self):
         return dict(super().capabilities(), version=VERSION,
                     choice_context='all-options-untrusted-no-answer-key',
-                    choice_max_count=32, choice_total_utf8_bytes=3500,
-                    retrieval_context_utf8_bytes=8192,
+                    choice_max_count=None, choice_total_utf8_bytes=None,
+                    retrieval_context_utf8_bytes=None,
                     retrieval='native-raw+BM25+exact-image+options-joint-selection+same-add-context')
 
     def search(self, payload):
         parts = validate_search(payload)
-        self._retrieval_text(payload, parts)  # All capacity checks precede any model dispatch.
+        self._retrieval_text(payload, parts)  # Validate options/media before model dispatch.
         return super().search(payload)
 
     def _retrieval_text(self, payload, parts):
