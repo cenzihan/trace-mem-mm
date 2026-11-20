@@ -1,10 +1,27 @@
 # TraceMem-MM
 
+**Authors:** Zihan Cen, Zhaoyang Liu
+
+**Affiliation:** SYSU I3C lab
+
 面向多模态对话的长期记忆服务：保留原始文本与图片，按用户隔离检索，返回可追溯的原始证据。
+
+## Agent Memory Challenge · Cycle 2, 2026
+
+![TraceMem-MM — fourth place, Multimodal Memory, Open-source Methods, score 41.22](docs/assets/aml-cycle2-fourth-place.png)
+
+**第 4 名 / Fourth place · 多模态开源方法榜 / Multimodal Open-source Methods · 41.22**。于 2026-11-20 核对[官方榜单](https://agentmemoryleaderboard.ai/leaderboard/academic/multimodal)。官网登记版本为 [`tracemem-mm-mem0-options-v4.3.10-rc1`](https://github.com/cenzihan/trace-mem-mm/tree/tracemem-mm-mem0-options-v4.3.10-rc1)；该成绩不应视为下述当前实现的独立评测结果。
 
 当前最终实现为 **v4.3.15-rc7**，服务入口是 `agent_memory.gpu6_app:create_gpu6_app`。模型使用 `text-embedding-v4`（256 维文本向量）与 `gpt-4o-mini`（多模态证据选择）。
 
 ## 架构
+
+![TraceMem-MM architecture: source-preserving Add, user-scoped hybrid Search, multimodal evidence selection and original-evidence return](docs/assets/tracemem-mm-architecture.png)
+
+图示为当前 **v4.3.15-rc7** 的 Add/Search 流程；平台 Answer/Eval 位于系统边界之外。图片精确匹配不等同于视觉语义向量检索。
+
+<details>
+<summary>可编辑流程图 / Editable flow diagram</summary>
 
 ```mermaid
 flowchart LR
@@ -19,6 +36,8 @@ flowchart LR
     S --> T[同次 Add 上下文扩展]
     T --> U[返回原始证据]
 ```
+
+</details>
 
 - **写入**：保留原始内容与来源标识；使用 Mem0 原文模式，文本嵌入按同次 Add 有界分批准备，原生存储写入串行化。媒体预处理结果仅在当前请求内复用。
 - **检索**：融合向量检索、BM25 与图片精确匹配；可选 `options` 作为不可信查询上下文，不写入记忆。GPT 从有界候选中选择证据，再补充相邻上下文；服务不生成问题答案。

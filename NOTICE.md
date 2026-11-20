@@ -7,6 +7,11 @@ Third-party components retain their own copyright notices and license terms:
   retains its upstream MIT copyright notice, license text, and provenance.
 - Mem0 is an Apache-2.0-licensed dependency. Its license and notices remain in
   its distribution; see [the native baseline documentation](docs/native-mem0-baseline.md).
+- The Qwen symbol in the architecture figure is taken from the logo linked by
+  the [official Qwen3-Embedding repository](https://github.com/QwenLM/Qwen3-Embedding):
+  [original artwork](https://qianwen-res.oss-accelerate.aliyuncs.com/logo_qwen_embedding.png).
+  Qwen branding remains the property of its respective owner and identifies
+  the embedding model family; it does not imply endorsement.
 
 Other third-party components are subject to their respective terms. The project
 license does not grant rights to third-party datasets, benchmark material, or
