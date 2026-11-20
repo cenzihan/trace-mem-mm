@@ -75,7 +75,7 @@ retains the existing caption-text or exact-source-identity limitation.
 - The hosted service has no private GPU dependency. Health checks validate local
   configuration, budget and journals without paid upstream probes. A200 health
   response therefore does not prove current provider reachability.
-- `compose.bailian.yaml` runs a distinct loopback8769 service, with the original
+- `deploy/compose/compose.bailian.yaml` runs a distinct loopback8769 service, with the original
   lease end, authentication and shared ledger. The512 hosted-request ceiling is
   a server guard, not permission to run Full or restart completed experiments.
 
@@ -102,7 +102,7 @@ have empty gold and are excluded from recall averages.
 This is engineering regression on a previously examined scene, not an independent
 benchmark, statistical superiority claim or official score. Rerank-only median
 time was1.811s; this excludes query embedding and cannot be compared directly with
-v1's complete Search latency. See the [aggregate report](../reports/bailian-v2-regression.json).
+v1's complete Search latency. See the [aggregate report](../../reports/bailian-v2-regression.json).
 One report-serialization error after the first successful call was repaired using
 saved evidence, with no model replay. All79 receipts are complete and minimized.
 

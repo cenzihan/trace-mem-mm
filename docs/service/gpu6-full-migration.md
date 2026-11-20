@@ -31,7 +31,7 @@ This is a retained deployment profile, not a portable default. It requires
 explicit migration/accounting activation, verified disk migration, the original
 state and receipt directories, token files, a concurrency control file and an
 unexpired service lease. OpenAI traffic uses its deployment-specific local
-proxy tunnel with end-to-end TLS verification. `Dockerfile.mem0` builds the
+proxy tunnel with end-to-end TLS verification. `deploy/docker/Dockerfile.mem0` builds the
 native dependencies; its default command starts the earlier base factory, so
 using the final profile requires an explicit entrypoint override.
 

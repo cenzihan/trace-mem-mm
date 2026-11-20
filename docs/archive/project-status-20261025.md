@@ -14,7 +14,7 @@
 
 这里的 Recall 是逐题“找回的标注来源数/该题标注来源数”的宏平均，不是答案正确率。Mem-Gallery按round，ATM按native artifact计数，不能混用单位。正式 Search K=100 与本地reader K=20分别报告。
 
-V4主要指标提升3.08个百分点，31题5胜24平2负，配对bootstrap 95%区间[-0.51,+7.38]个百分点。V4未替换默认生产检索，Hard31配置和结果已冻结。详见[完整结果](v4-sparse-results.md)。
+V4主要指标提升3.08个百分点，31题5胜24平2负，配对bootstrap 95%区间[-0.51,+7.38]个百分点。V4未替换默认生产检索，Hard31配置和结果已冻结。详见[完整结果](../research/atm/v4-sparse-results.md)。
 
 ## 方法判断
 
@@ -22,7 +22,7 @@ V4主要指标提升3.08个百分点，31题5胜24平2负，配对bootstrap 95%�
 
 ATM N0在邮件上Recall@20为91.08%，图像63.50%，视频62.67%；list-recall为55.10%。这说明外部描述的稀疏检索存在模态/题型差异，并不直接证明原图理解失败。Hard31的明显困难进一步说明，继续增加相关词法视图不足以替代语义/多证据能力。
 
-研究了ATM-RAG、V-Mem、M3-Agent、LightMem。当前采用V-Mem式“细粒度匹配→原始来源聚合”结构，先实现零API适配；默认MiniLM/SigLIP等不带入指定模型主线。见[核查与原始链接](opensource-methods-20261025.md)。
+研究了ATM-RAG、V-Mem、M3-Agent、LightMem。当前采用V-Mem式“细粒度匹配→原始来源聚合”结构，先实现零API适配；默认MiniLM/SigLIP等不带入指定模型主线。见[核查与原始链接](../research/opensource-methods-20261025.md)。
 
 ## Git与GitHub
 
@@ -30,7 +30,7 @@ ATM N0在邮件上Recall@20为91.08%，图像63.50%，视频62.67%；list-recall
 
 实时核验的[GitHub仓库](https://github.com/cenzihan/trace-mem-mm)仍为private、默认main；接管时远端HEAD为`2781867fa8c812f9022a79522f5291d85a062373`，本地导出HEAD为`ca5c04742448774e5c33aaa060557fbc80fe500e`，领先一提交。导出也缺N0、误差分析和新基线代码。没有已通过的GitHub CI证据。
 
-本轮在导出仓库创建本地`codex/v4-sparse-hard31`分支，按清单同步代码、合成测试和聚合结果文档。保持原有导出定制测试；不复制原数据、QA/gold、runtime、原始响应、账本或日志。没有push；远端仍需单独审查后同步。随后用户停止原Dot工作会话，已核实idle并由当前会话接管；其可靠性改动经审查修复后进入V5准备版本。详见[v5缓存与接管说明](v5-cache-preparation.md)。
+本轮在导出仓库创建本地`codex/v4-sparse-hard31`分支，按清单同步代码、合成测试和聚合结果文档。保持原有导出定制测试；不复制原数据、QA/gold、runtime、原始响应、账本或日志。没有push；远端仍需单独审查后同步。随后用户停止原Dot工作会话，已核实idle并由当前会话接管；其可靠性改动经审查修复后进入V5准备版本。详见[v5缓存与接管说明](../research/atm/v5-cache-preparation.md)。
 
 ## 下一阶段顺序
 

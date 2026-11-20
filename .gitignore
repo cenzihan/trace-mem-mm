@@ -12,7 +12,7 @@ models/
 *.pem
 *.key
 data/
-docs/*.private.md
+docs/**/*.private.md
 *.log
 artifacts/
 backups/

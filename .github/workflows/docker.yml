@@ -16,8 +16,7 @@ on:
       - .github/workflows/docker.yml
       - Dockerfile
       - .dockerignore
-      - compose*.yaml
-      - requirements-docker.txt
+      - compose.yaml
       - agent_memory/**
       - deploy/**
       - scripts/verify_container.py
@@ -27,7 +26,7 @@ on:
       - tests/test_container*.py
       - tests/test_verify_container.py
       - tests/test_*embedding*smoke*.py
-      - docs/embedding-model-smoke.md
+      - docs/operations/embedding-model-smoke.md
   workflow_dispatch:
 
 permissions:

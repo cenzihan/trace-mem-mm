@@ -2,7 +2,7 @@ FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e896
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY requirements-docker.txt /app/requirements-docker.txt
+COPY deploy/docker/requirements-docker.txt /app/requirements-docker.txt
 RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements-docker.txt \
     && groupadd --gid 10001 tracemem \
     && useradd --uid 10001 --gid 10001 --no-create-home tracemem \
@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requireme
     && chown 10001:10001 /data /app/runtime
 
 COPY agent_memory/ /app/agent_memory/
-COPY deploy/ /app/deploy/
+COPY deploy/*.py /app/deploy/
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

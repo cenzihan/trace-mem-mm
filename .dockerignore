@@ -1,14 +1,17 @@
 # Allow-list the build context. Never include experiments, data, keys or Git history.
 **
 !Dockerfile
-!Dockerfile.mem0
 !.dockerignore
-!requirements-docker.txt
-!requirements-mem0.txt
 !agent_memory/
 !agent_memory/**
 !deploy/
-!deploy/**
+deploy/**
+!deploy/*.py
+!deploy/docker/
+deploy/docker/**
+!deploy/docker/Dockerfile.mem0
+!deploy/docker/requirements-docker.txt
+!deploy/docker/requirements-mem0.txt
 **/__pycache__/
 **/*.pyc
 **/*.sqlite*

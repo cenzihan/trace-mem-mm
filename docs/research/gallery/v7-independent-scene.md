@@ -2,7 +2,7 @@
 
 本轮已经完成。Dense＋重排在新场景的 Recall@20 最高，为 **94.62%**；16题回答 pilot 中，Dense＋重排、Hybrid、Hybrid＋重排均为 **56.25/100**。回答差异的配对区间跨零，尚未证明重排带来稳定的最终回答提升。Dense＋重排继续作为主候选，保留 Hybrid 对照；V7.1 仍是研究版本，默认在线服务未切换，Docker 暂缓。
 
-![V7 retrieval and V7.1 reader comparison](assets/benchmark-v71.png)
+![V7 retrieval and V7.1 reader comparison](../../assets/benchmark-v71.png)
 
 ## 实验范围
 
@@ -47,11 +47,11 @@ V7.1将完整来源库映射为稳定短编号 `M0001` 等，仅替换来源头�
 
 复核报告均只发布聚合结果，不发布原题、答案、引用ID、私有响应或数据库：
 
-- [完整检索](../reports/memgallery-v7-retrieval-scores.json)
-- [V7.1回答得分](../reports/memgallery-v71-reader-scores.json)
-- [原V7引用失败诊断](../reports/memgallery-v7-citation-format-diagnostic.json)
-- [V7.1格式诊断](../reports/memgallery-v71-format-diagnostic.json)
-- [完整调用与账本审计](../reports/memgallery-v71-judge-json-accounting-audit.json)
+- [完整检索](../../../reports/memgallery-v7-retrieval-scores.json)
+- [V7.1回答得分](../../../reports/memgallery-v71-reader-scores.json)
+- [原V7引用失败诊断](../../../reports/memgallery-v7-citation-format-diagnostic.json)
+- [V7.1格式诊断](../../../reports/memgallery-v71-format-diagnostic.json)
+- [完整调用与账本审计](../../../reports/memgallery-v71-judge-json-accounting-audit.json)
 
 下一步优先在合成契约测试中简化拒答状态表达，再冻结新的独立场景验证；保留Dense、Hybrid和各自重排四组。RAW-RAG的窗口检索、整轮回填尚未实现，本轮只验证了重排借鉴。不要在当前16题上继续调语义prompt或把新的结构变更包装成未见测试。Docker和在线Add/Search集成留待后续阶段。
 

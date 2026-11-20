@@ -81,7 +81,7 @@ As a separate diagnostic, deduplicating returned messages into source rounds
 before taking the first 20 gives 93.42% recall. This can use more than 20 messages.
 Neither figure is a matched comparison with frozen V7, which ranked complete
 rounds and used a different source representation. No reader accuracy is measured.
-See [aggregate evidence](../reports/online-native-acceptance.json).
+See [aggregate evidence](../../reports/online-native-acceptance.json).
 
 The pinned GPU scorer is currently reached through an authenticated private
 tunnel. Its bounded temporary process still needs a persistent deployment before

@@ -49,7 +49,7 @@ ledger. Original budget and accounting rows remain unchanged. New code reads the
 validated consent chain; frozen old versions continue enforcing their smaller
 original ceiling, including after restart. No HTTP route can increase budgets.
 
-Build with `docker build -f Dockerfile.mem0 .`. The service factory requires an
+Build with `docker build -f deploy/docker/Dockerfile.mem0 .`. The service factory requires an
 explicit activation, private state and secrets, and the original deployment lease.
 Local synthetic SDK tests establish protocol and persistence behavior only. They
 are neither real model calls nor benchmark scores. Each deployed version must be

@@ -62,8 +62,8 @@ is used only to serve evaluation, not training, tuning, analytics or sharing.
 
 ## Reproduction
 
-Run `python scripts/run_checks.py` for offline unit and loopback checks. Use
-`compose.service.yaml` beside a `source/` checkout and private `config/`,
+Run `python scripts/run_checks.py` for offline unit and loopback checks. Place a copy of
+`deploy/compose/compose.service.yaml` beside a `source/` checkout and private `config/`,
 `runtime/`, and `secrets/` directories. Provision the original ledger ownership
 manifest and currently verified prices; this profile deliberately refuses to
 create a fresh budget. Supply your own credentials and the fixed scorer service

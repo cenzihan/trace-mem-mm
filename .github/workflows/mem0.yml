@@ -2,7 +2,7 @@ name: Native Mem0 container validation
 on:
   push:
     branches: [main, codex/final-architecture-20261103, codex/disk-backed-native-vectors, codex/bounded-readiness-memory, codex/two-lane-crash-recovery, codex/bounded-parallel-ingestion, codex/mem0-night-baseline, codex/native-transport-isolation, codex/mem0-streaming, codex/mem0-source-evidence, codex/mem0-stream-completion, codex/mem0-raw-source, codex/mem0-visual-rerank, codex/hosted-failure-diagnostics, codex/mem0-joint-selection, codex/mem0-options-context, codex/operator-scoped-recovery, codex/known-failure-recovery, codex/embedding-predispatch-latch, codex/request-503-diagnostics, codex/embedding-owner-scope, codex/bounded-retry-fresh-memory]
-    paths: ['agent_memory/**', 'tests/**', 'Dockerfile.mem0', 'requirements*.txt', '.github/workflows/mem0.yml', '.dockerignore']
+    paths: ['agent_memory/**', 'tests/**', 'deploy/*.py', 'deploy/docker/Dockerfile.mem0', 'deploy/docker/requirements-*.txt', '.github/workflows/mem0.yml', '.dockerignore']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with: {persist-credentials: false}
       - name: Build pinned native dependency image
-        run: docker build -f Dockerfile.mem0 -t tracemem-native:test .
+        run: docker build -f deploy/docker/Dockerfile.mem0 -t tracemem-native:test .
       - name: Real SDK with synthetic models and no network
         run: |
           # The full Windows suite also covers retired msvcrt-only experiment

@@ -6,6 +6,8 @@
 
 面向多模态对话的长期记忆服务：保留原始文本与图片，按用户隔离检索，返回可追溯的原始证据。
 
+[本地运行](#本地运行) · [Add/Search 接口](docs/service/protocol.md) · [文档与实验](docs/README.md)
+
 ## Agent Memory Challenge · Cycle 2, 2026
 
 ![TraceMem-MM — fourth place, Multimodal Memory, Open-source Methods, score 41.22](docs/assets/aml-cycle2-fourth-place.png)
@@ -53,18 +55,20 @@ python -m agent_memory
 python scripts/run_checks.py
 ```
 
-第一条运行合成数据的离线演示；第二条运行离线测试，包含临时本机 HTTP 集成测试，不调用付费模型。原生 Mem0 测试需要额外依赖，缺失时会标记跳过；固定依赖见 `requirements-mem0.txt`，容器构建入口为 `Dockerfile.mem0`。
+第一条运行合成数据的离线演示；第二条运行离线测试，包含临时本机 HTTP 集成测试，不调用付费模型。原生 Mem0 测试需要额外依赖，缺失时会标记跳过；固定依赖见 `deploy/docker/requirements-mem0.txt`，容器构建入口为 `deploy/docker/Dockerfile.mem0`。
 
-线上工厂保留专用部署的显式授权、状态目录、代理与租期约束，不是通用的一键启动配置。部署边界见 [GPU6 服务说明](docs/gpu6-full-migration.md)，磁盘存储细节见 [向量存储](docs/disk-vector-storage.md)。仓库中的其他服务工厂、Compose 文件与研究文档保留作历史实现参考。
+线上工厂保留专用部署的显式授权、状态目录、代理与租期约束，不是通用的一键启动配置。部署边界见 [GPU6 服务说明](docs/service/gpu6-full-migration.md)，磁盘存储细节见 [向量存储](docs/service/disk-vector-storage.md)。仓库中的其他服务工厂、Compose 文件与研究文档保留作历史实现参考。
 
-## 目录
+## 仓库导航
 
 | 路径 | 内容 |
 | --- | --- |
-| `agent_memory/` | API、Mem0 适配、混合检索、证据选择、存储与回执 |
-| `tests/`、`fixtures/` | 离线回归测试与合成样例 |
-| `deploy/`、`Dockerfile.mem0` | 服务进程配置与固定依赖容器 |
-| `docs/` | 架构细节、存储与恢复机制 |
+| [agent_memory/](agent_memory/) | [服务入口](agent_memory/gpu6_app.py)、[混合检索](agent_memory/mem0_raw.py)、[多模态证据选择](agent_memory/joint_selection.py) |
+| [deploy/](deploy/) | 服务进程、[Mem0 容器与依赖](deploy/docker/)和[专用 Compose 配置](deploy/compose/) |
+| [configs/](configs/) | 本地示例和实验模型配置 |
+| [scripts/](scripts/) | 本地检查、实验命令和维护工具 |
+| [tests/](tests/) · [fixtures/](fixtures/) | 回归测试及合成图文请求 |
+| [docs/](docs/) · [reports/](reports/) | 服务文档、历史实验和可下载的汇总结果 |
 
 仅公开源码与合成样例，不包含模型密钥、私有运行数据库或评测数据。
 

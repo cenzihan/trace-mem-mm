@@ -1,6 +1,6 @@
 # Docker 部署与服务器准备
 
-2026-10-26。基础 Docker API 已部署到用户 Ubuntu 24.04 服务器，真实容器生命周期、认证与备份恢复已通过。后续真实 GPT／Qwen 组件 smoke 与准入缺口见[最新准备记录](competition-readiness-20261026.md)。
+2026-10-26。基础 Docker API 已部署到用户 Ubuntu 24.04 服务器，真实容器生命周期、认证与备份恢复已通过。后续真实 GPT／Qwen 组件 smoke 与准入缺口见[最新准备记录](../archive/competition-readiness-20261026.md)。
 
 当前镜像运行**基础 Add/Search 服务**：BM25／规则检索、原始图文持久化、用户范围隔离。它尚未包含 V7 实验的 Dense＋重排在线流水线。健康接口明确报告 dense 和 reranker 禁用；不能把 94.62% 实验 Recall@20 作为该容器的线上成绩。设置不支持的模式会拒绝启动。
 
@@ -18,7 +18,7 @@ Python 3.11 slim Bookworm 的 OCI index 已固定到 sha256:f06d01d4ba3f8ad5af45
 
 一个进程、四线程，SQLite 持久卷位于 /data。容器 UID/GID 10001、只读根目录、临时 /tmp、无 capabilities、禁止新增权限。默认 CPU 上限 2 核、内存 1 GB、128 PID；日志每文件 10 MB，保留 3 个。这些是限制，不是实测容量保证。构建允许列表排除密钥、数据、研究结果、账本和 Git 历史。
 
-本机 Windows 没有 Docker CLI／可用 Linux Engine，本地预检因此失败，这不等于镜像失败或成功。GitHub 工作流 [.github/workflows/docker.yml](../.github/workflows/docker.yml) 在 Ubuntu 24.04 执行真实验证。对应提交的成功运行与 JSON 摘要才是镜像通过的证据。
+本机 Windows 没有 Docker CLI／可用 Linux Engine，本地预检因此失败，这不等于镜像失败或成功。GitHub 工作流 [.github/workflows/docker.yml](../../.github/workflows/docker.yml) 在 Ubuntu 24.04 执行真实验证。对应提交的成功运行与 JSON 摘要才是镜像通过的证据。
 
 在已有 Docker Engine 和 Compose v2 的 Linux 或 Docker Desktop Linux containers 主机执行：
 
@@ -32,10 +32,10 @@ python3 scripts/verify_container.py --output artifacts/container-validation.json
 
 按 [Docker 官方 Ubuntu 安装文档](https://docs.docker.com/engine/install/ubuntu/)安装 Engine、Buildx 和 Compose plugin。先确认 docker version 和 docker compose version 可用。以下命令使用有 Docker 权限的同一登录用户。
 
-获取私有仓库部署分支。服务器须先配置有权读取该仓库的 Git 认证；不要把 token 填进命令 URL。
+克隆仓库后在根目录执行以下命令。
 
 ~~~bash
-git clone --branch codex/v6-research-docker git@github.com:cenzihan/trace-mem-mm.git
+git clone https://github.com/cenzihan/trace-mem-mm.git
 cd trace-mem-mm
 git rev-parse HEAD
 python3 scripts/verify_container.py --output artifacts/server-container-validation.json
@@ -95,4 +95,4 @@ curl --fail http://127.0.0.1:8766/health
 
 平台调用 Add/Search；Reader 与 Judge 属实验评估，不自动加入每次 Search。Gunicorn 活性和停机参数不是逐请求截止时间，也不构成 30 分钟 SLA；公网网关、64 MiB HTTP 上限和负载能力需服务器到位后验证。
 
-依据：[Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)、[Compose 服务配置](https://docs.docker.com/reference/compose-file/services/)、[Docker volumes](https://docs.docker.com/engine/storage/volumes/)、[GitHub runner](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)、[V7/V7.1 结果](v7-independent-scene.md)、[协议](protocol.md)。
+依据：[Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)、[Compose 服务配置](https://docs.docker.com/reference/compose-file/services/)、[Docker volumes](https://docs.docker.com/engine/storage/volumes/)、[GitHub runner](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)、[V7/V7.1 结果](../research/gallery/v7-independent-scene.md)、[协议](../service/protocol.md)。

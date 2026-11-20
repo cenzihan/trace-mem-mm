@@ -40,4 +40,4 @@
 
 准备好执行器和范围后，再构建一份共享source编码，并在新的预登记问题/完整场景上比较dense-only和固定hybrid。已经测过的Hard31保留为历史结果，不继续调参追分。reader和选图消融放在证据覆盖验证之后。
 
-相关记录：[V4结果](v4-sparse-results.md)、[原视觉恢复设计](visual-recovery.md)、[ATM准入检查](atm-admission-review.md)。
+相关记录：[V4结果](v4-sparse-results.md)、[原视觉恢复设计](../visual-recovery.md)、[ATM准入检查](atm-admission-review.md)。

@@ -14,7 +14,7 @@
 
 - Run `python scripts/run_checks.py` for the offline suite. Report dependency
   skips explicitly; mocked tests do not establish real provider throughput.
-- Native dependency checks run in `Dockerfile.mem0` with synthetic inputs and
+- Native dependency checks run in `deploy/docker/Dockerfile.mem0` with synthetic inputs and
   disabled networking. Never use protected questions or gold answers as tests.
 - Keep deployment changes separate from source publication. Repository updates
   do not authorize touching a running service, state, credentials or lease.

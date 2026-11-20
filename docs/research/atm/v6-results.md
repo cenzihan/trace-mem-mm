@@ -1,5 +1,7 @@
 # V6：固定候选重排与 Reader 恢复后结果
 
+本文引用的运行报告文件名来自原实验记录。可下载的汇总见[公开报告目录](../../../reports/)。
+
 2026-10-26。**检索、64 份 Reader 响应的恢复和 5 次新盲评均已完成。** Regular 开发集上观察最高的 Recall@20 是 Hybrid＋重排的 **88.04%**；Hard31 上是 Dense＋重排的 **52.94%**。恢复后 16 题端到端 pilot 以 Dense＋重排的混合代理分 **45.00/100** 最高。检索召回与代理回答评分是不同指标，均不是官方榜单分数。
 
 ## 实验范围与核验
@@ -8,7 +10,7 @@
 
 独立核验确认：模型分数完整且无重复 pair；由已保存模型分数重新排序可复现 V6 排名；两种 V5 基线的来源顺序、分数和聚合指标完全复现；每个检索器重排前后的 Top100 来源集合完全相同。排名完成记录早于评分完成记录，冻结代码及文件哈希匹配，支持先固定排名、再由隔离评分进程读取 gold。本次核验没有重新打开 gold 计算指标。
 
-证据：[准备报告](../reports/atm-v6-rerank-preparation.json)、[排名完成报告](../reports/atm-v6-rerank-run.json)、[隔离评分报告](../reports/atm-v6-rerank-scores.json)、[V5 评分报告](../reports/atm-v5-dense-scores.json)。
+证据：准备报告（`reports/atm-v6-rerank-preparation.json`）、排名完成报告（`reports/atm-v6-rerank-run.json`）、隔离评分报告（`reports/atm-v6-rerank-scores.json`）、V5 评分报告（`reports/atm-v5-dense-scores.json`）。
 
 ## 四组检索结果
 
@@ -61,7 +63,7 @@ Reader pilot 固定 Regular8＋Hard8，共 16 题、四组 64 份回答；样本
 
 实际输入最多 7830 text tokens、23990 UTF-8 字节。重排改变来源顺序，也改变固定预算内能保留的来源数量；例如 Hard8 的 Hybrid 平均保留 17.25 条，重排后为 14.62 条。
 
-随后单独执行的[事后覆盖审计](../reports/atm-v6-packing-coverage-posthoc.json)，先校验全部 64 份恢复结果，再读取哈希匹配的 gold。下表只覆盖既定的平衡 16 题 pilot，不能与前方全量 1,044 题的平均值混用。
+随后单独执行的事后覆盖审计（`reports/atm-v6-packing-coverage-posthoc.json`），先校验全部 64 份恢复结果，再读取哈希匹配的 gold。下表只覆盖既定的平衡 16 题 pilot，不能与前方全量 1,044 题的平均值混用。
 
 | 方法 | pilot 原 Top20 recall | 实际上下文 recall | 因打包损失 gold 的题数 |
 |---|---:|---:|---:|
@@ -93,7 +95,7 @@ Dense 重排相对自身基线增加 25.47 分，描述性 95% 配对区间 [7.5
 
 四组的数字题均为 25/100，重排未解决该类回答问题；开放题分数依次为 15、55、25、40。下一步优先验证独立场景下的回答质量与固定预算后的证据覆盖，不继续在这 16 题上调 prompt 或挑 seed。
 
-证据：[离线恢复](../reports/atm-v6-reader-recovery-run.json)、[新盲评运行](../reports/atm-v6-reader-recovery-judge-run.json)、[恢复后独立评分](../reports/atm-v6-reader-recovery-scores.json)。保留：[旧 Reader 执行报告](../reports/atm-v6-reader-run.json)、[旧 judge 执行报告](../reports/atm-v6-reader-judge-run.json)、[旧评分文件（无效答题结论，仅保留故障记录）](../reports/atm-v6-reader-scores.json)。
+证据：离线恢复（`reports/atm-v6-reader-recovery-run.json`）、新盲评运行（`reports/atm-v6-reader-recovery-judge-run.json`）、恢复后独立评分（`reports/atm-v6-reader-recovery-scores.json`）。保留：旧 Reader 执行报告（`reports/atm-v6-reader-run.json`）、旧 judge 执行报告（`reports/atm-v6-reader-judge-run.json`）、旧评分文件（无效答题结论，仅保留故障记录）（`reports/atm-v6-reader-scores.json`）。
 
 ## 请求与费用口径
 
@@ -103,4 +105,4 @@ V6 现累计 **79 次真实 API 调用：64 次 Reader＋10 次旧 judge＋5 次
 
 **¥19.75 是 79 次请求各 ¥0.25 的累计保守预留，不是实际费用**，在本轮既定 **80 次／¥20** 上限内。项目共享账本累计 accounted ¥37.951015，保留旧阶段预留；不能将该数全部解释为已经花费。
 
-[独立记账审计](../reports/atm-v6-recovery-accounting-audit.json)确认原 1,377 行及含原 V6 的 1,451 行账本前缀均未变，原始收据、旧 guard、答案及旧零分报告哈希保持不变。最终运行证据见[恢复后进度与预算](../reports/atm-v6-reader-recovery-live-progress.json)。源码全回归 401 项、导出仓库 366 项通过；均为工程检查，不是 benchmark 题数。
+独立记账审计（`reports/atm-v6-recovery-accounting-audit.json`）确认原 1,377 行及含原 V6 的 1,451 行账本前缀均未变，原始收据、旧 guard、答案及旧零分报告哈希保持不变。最终运行证据见恢复后进度与预算（`reports/atm-v6-reader-recovery-live-progress.json`）。源码全回归 401 项、导出仓库 366 项通过；均为工程检查，不是 benchmark 题数。

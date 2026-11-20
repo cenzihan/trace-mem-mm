@@ -45,5 +45,5 @@ no-LLM ablation must be disclosed explicitly, not represented as a GPT-based
 entry or as approved for Full.
 
 Mem0 attribution and pinned dependency licenses remain in
-[the baseline documentation](native-mem0-baseline.md). Tests exercise the actual
+[the baseline documentation](../archive/native-mem0-baseline.md). Tests exercise the actual
 SDK with synthetic vectors, original synthetic images and no external traffic.

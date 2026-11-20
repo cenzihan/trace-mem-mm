@@ -31,7 +31,7 @@ V4将flat、summary、detail独立BM25排名按native parent聚合，再等权RR
 - 冻结配置SHA256：`b88cc6a2ae733b70e683a022c6910229619dd3065081afb5b0b5ee2f1d7abfed`。
 - 排名SHA256：`f6d8bb4c0ce5a8be71358290ab7e4a06b51337df307f6e383abeb72045104e87`。
 - 本地原始排名和逐题评分位于忽略的`runtime/atm-v4-hard`，不进Git。
-- [预登记方案](v4-sparse-plan.md)；[开源方法核查](opensource-methods-20261025.md)。
+- [预登记方案](../../v4-sparse-plan.md)；[开源方法核查](../opensource-methods-20261025.md)。
 
 ## 下一版选择
 

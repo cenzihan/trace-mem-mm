@@ -1,7 +1,7 @@
 # Native Mem0 with bounded visual reranking
 
 `tracemem-mm-mem0-visual-v4.1.0` is a separate, explicitly activated candidate.
-It keeps [raw Mem0](mem0-raw-source.md) Add and its original embedding journal:
+It keeps [raw Mem0](../service/mem0-raw-source.md) Add and its original embedding journal:
 Mem0 2.2.1 `infer=False`, local Qdrant, `text-embedding-v4` at256dimensions,
 complete original source archives. It does not call an LLM or generate captions.
 Images are decoded and validated before any Add provider call.

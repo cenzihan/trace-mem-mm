@@ -33,4 +33,4 @@ evidence ID 必须指向来源 occurrence，多个卡片不能虚增证据数量
 
 ## Current implemented native comparison
 
-The original-evidence round index, structured specified-model visual adapter and bounded expansion now have one frozen native comparison. See [results](docs/native-v2-results.md) for all controls and negative findings. This is not a full reproduction of an upstream framework or official AML judging.
+The original-evidence round index, structured specified-model visual adapter and bounded expansion now have one frozen native comparison. See [results](native/native-v2-results.md) for all controls and negative findings. This is not a full reproduction of an upstream framework or official AML judging.

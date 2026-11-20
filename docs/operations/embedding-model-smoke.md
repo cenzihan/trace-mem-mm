@@ -1,6 +1,6 @@
 # 有限额度的真实 embedding 冒烟验收
 
-后续更新（2026-10-26）：用户调整连接配置后，已部署容器内的一次真实 GPT 卡片调用通过，另有独立 GPU 上的 Qwen 重排 smoke 通过。见[最新模型结果与准入准备](competition-readiness-20261026.md)。下文保留三次 embedding 阶段及当时 GPT 地区预检失败的历史记录，不代表最新连接状态。
+后续更新（2026-10-26）：用户调整连接配置后，已部署容器内的一次真实 GPT 卡片调用通过，另有独立 GPU 上的 Qwen 重排 smoke 通过。见[最新模型结果与准入准备](../archive/competition-readiness-20261026.md)。下文保留三次 embedding 阶段及当时 GPT 地区预检失败的历史记录，不代表最新连接状态。
 
 这份流程验证已部署容器里的真实 `text-embedding-v4`：新资料入库生成向量、查询生成向量，以及认证、幂等、用户隔离和容器重建后的持久化。它使用独立 Compose 项目、固定合成文字和独立持久卷，保留原有基础服务。
 
@@ -81,9 +81,9 @@ for path, value in ((service, secrets.token_urlsafe(48)), (bailian, key)):
     path.chmod(0o644)
 PY
 chmod 0644 "$TRACEMEM_SMOKE_SECRET_DIR/grant.json"
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke config --quiet
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke build --pull
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke up -d --wait --wait-timeout 90
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke config --quiet
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke build --pull
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke up -d --wait --wait-timeout 90
 curl --fail http://127.0.0.1:8766/health
 ```
 
@@ -96,11 +96,11 @@ curl --fail http://127.0.0.1:8766/health
 仅对这个全新隔离实例依次执行一次；任何步骤失败即停止检查原始状态，不自动重试：
 
 ```bash
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
   python deploy/embedding_smoke_test.py seed
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke up \
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke up \
   -d --no-build --force-recreate --wait --wait-timeout 90
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
   python deploy/embedding_smoke_test.py verify
 ```
 
@@ -111,14 +111,14 @@ seed 预期使用前两个 slot；verify 的重复 Add 应直接返回既存结�
 审计命令不调用 provider。它核对已持久化的 grant、三个完整收据、256 维向量、usage 和业务数据库，并输出脱敏摘要；完整私有审计 JSON 留在卷中，不进入 Git 或 CI artifact：
 
 ```bash
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke exec -T api \
   python deploy/audit_embedding_smoke.py \
   --grant /run/secrets/embedding_grant \
   --expected-grant-sha256 "$TRACEMEM_GRANT_SHA256" \
   --state /app/runtime/deployment-embedding-smoke \
   --private-output /app/runtime/deployment-embedding-smoke/private-audit.json
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke stop
-docker compose -f compose.model-smoke.yaml -p tracemem-model-smoke cp \
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke stop
+docker compose -f deploy/compose/compose.model-smoke.yaml -p tracemem-model-smoke cp \
   api:/app/runtime/deployment-embedding-smoke/private-audit.json \
   "$TRACEMEM_SMOKE_SECRET_DIR/private-audit.json"
 chmod 0600 "$TRACEMEM_SMOKE_SECRET_DIR/private-audit.json"

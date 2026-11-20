@@ -41,7 +41,7 @@
 
 版本运行说明应披露：原图与有序文本保留、严格 user_id 隔离、固定模型与 reranker 版本、用户向量索引、候选数、同请求幂等、同步完成语义、持久卷、备份恢复、认证、限流、容量、超时、来源和方法改动。当前一个 Gunicorn worker／四线程、容器 1 GiB 上限和 64 MiB JSON 上限是配置值；没有相应并发负载或 30 分钟 SLA 实测，不能写成承诺。
 
-官网文档明确：Embedding 使用 text-embedding-v4，LLM 使用 gpt-4o-mini，reranker 不限制；Qwen 只用于候选打分，不替代 LLM、embedding 或平台 Answer/Eval。申请表另有笼统的模型提示，提交说明需明确组件职责，并附该现行文档依据。方法来源及 RAW-RAG / DSH 借鉴边界见 [研究说明](raw-rag-dsh-design.md)；不能把未实现的窗口回填或其他上游功能写成已实现。
+官网文档明确：Embedding 使用 text-embedding-v4，LLM 使用 gpt-4o-mini，reranker 不限制；Qwen 只用于候选打分，不替代 LLM、embedding 或平台 Answer/Eval。申请表另有笼统的模型提示，提交说明需明确组件职责，并附该现行文档依据。方法来源及 RAW-RAG / DSH 借鉴边界见 [研究说明](../research/raw-rag-dsh-design.md)；不能把未实现的窗口回填或其他上游功能写成已实现。
 
 ## Smoke 的实际前置条件
 
